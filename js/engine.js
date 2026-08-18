@@ -23,7 +23,8 @@ const Engine = (() => {
   // order: ลำดับการสร้างจุด (ใช้อ้างอิงลำดับ/รัน A,B,C.. อัตโนมัติ)
   let state = {
     points: {},   // name -> record
-    order: []     // array of names, insertion order
+    order: [],    // array of names, insertion order
+    baseAngleDeg: 0 // มุมทิศทาง (azimuth) ของเส้นฐาน A->B วัดจากแกน X ทวนเข็มนาฬิกา (องศา)
   };
 
   const EPS = 1e-9;
@@ -143,7 +144,7 @@ const Engine = (() => {
 
   /** ล้างข้อมูลทั้งหมด */
   function reset() {
-    state = { points: {}, order: [] };
+    state = { points: {}, order: [], baseAngleDeg: 0 };
   }
 
   /** คืนสถานะปัจจุบันแบบ read-only (shallow clone เพื่อความปลอดภัย) */
@@ -167,10 +168,11 @@ const Engine = (() => {
   }
 
   /**
-   * วางเส้นฐานแรก A=(0,0), B=(L,0)
+   * วางเส้นฐานแรก A=(0,0), B=(L*cos(angle), L*sin(angle))
+   * angleDeg คือมุมทิศทาง (azimuth) ของเส้น A->B วัดจากแกน X ทวนเข็มนาฬิกา หน่วยองศา (ค่าเริ่มต้น 0 = แนวแกน X)
    * ถ้ามีข้อมูลอยู่แล้วจะล้างของเดิมทั้งหมดก่อน (เส้นฐานใหม่ = เริ่มโครงข่ายใหม่)
    */
-  function setBaseLine(nameA, nameB, length) {
+  function setBaseLine(nameA, nameB, length, angleDeg) {
     if (!nameA || !nameA.trim()) nameA = 'A';
     if (!nameB || !nameB.trim()) nameB = 'B';
     nameA = nameA.trim();
@@ -181,25 +183,89 @@ const Engine = (() => {
     if (!(length > 0)) {
       return { ok: false, error: 'ระยะ A–B ต้องมากกว่า 0' };
     }
+    angleDeg = Number.isFinite(angleDeg) ? angleDeg : 0;
     reset();
+    state.baseAngleDeg = angleDeg;
+    const rad = (angleDeg * Math.PI) / 180;
     state.points[nameA] = { x: 0, y: 0, isBase: true };
-    state.points[nameB] = { x: length, y: 0, isBase: true };
+    state.points[nameB] = { x: length * Math.cos(rad), y: length * Math.sin(rad), isBase: true };
     state.order.push(nameA, nameB);
     return { ok: true, names: [nameA, nameB] };
   }
 
   /**
-   * อัปเดตความยาวเส้นฐาน A–B (คงชื่อจุดเดิม) แล้ว auto-recalculate จุดลูกทั้งหมด
+   * อัปเดตความยาว และ/หรือ มุมทิศทางของเส้นฐาน A–B (คงชื่อจุดเดิม, A ตรึงที่ (0,0) เสมอ)
+   * แล้ว auto-recalculate จุดลูกทั้งหมด
+   * @param {{length?:number, angleDeg?:number}} params ระบุค่าใดค่าหนึ่งหรือทั้งคู่ก็ได้ (ไม่ระบุ = คงค่าเดิม)
    */
-  function updateBaseLength(newLength) {
+  function updateBaseGeometry({ length, angleDeg } = {}) {
     if (state.order.length < 2) return { ok: false, error: 'ยังไม่มีเส้นฐาน' };
-    if (!(newLength > 0)) return { ok: false, error: 'ระยะต้องมากกว่า 0' };
-    const nameA = state.order[0];
     const nameB = state.order[1];
-    state.points[nameB].x = newLength;
-    state.points[nameB].y = 0;
+    const current = state.points[nameB];
+    const currentLength = Math.hypot(current.x, current.y);
+    const newLength = (length !== undefined && length !== null && length !== '') ? parseFloat(length) : currentLength;
+    const newAngleDeg = (angleDeg !== undefined && angleDeg !== null && angleDeg !== '') ? parseFloat(angleDeg) : state.baseAngleDeg;
+    if (!(newLength > 0)) return { ok: false, error: 'ระยะต้องมากกว่า 0' };
+    if (!Number.isFinite(newAngleDeg)) return { ok: false, error: 'มุมทิศทางไม่ถูกต้อง' };
+
+    state.baseAngleDeg = newAngleDeg;
+    const rad = (newAngleDeg * Math.PI) / 180;
+    state.points[nameB].x = newLength * Math.cos(rad);
+    state.points[nameB].y = newLength * Math.sin(rad);
     recomputeAll();
     return { ok: true };
+  }
+
+  /** ความเข้ากันได้กับโค้ดเดิม: อัปเดตเฉพาะความยาว (คงมุมเดิม) */
+  function updateBaseLength(newLength) {
+    return updateBaseGeometry({ length: newLength });
+  }
+
+  /** คืนมุมทิศทางปัจจุบันของเส้นฐาน (องศา) */
+  function getBaseAngle() {
+    return state.baseAngleDeg || 0;
+  }
+
+  /** ปรับมุมองศาให้อยู่ในช่วง [0, 360) */
+  function normalizeDeg(deg) {
+    let d = deg % 360;
+    if (d < 0) d += 360;
+    return d;
+  }
+
+  /** คืนมุมทิศทาง (องศา, 0-360) ของเส้นจาก fromName ไปยัง toName ในสถานะปัจจุบัน */
+  function getEdgeAngle(fromName, toName) {
+    const From = state.points[fromName];
+    const To = state.points[toName];
+    if (!From || !To) return null;
+    const dx = To.x - From.x, dy = To.y - From.y;
+    if (Math.hypot(dx, dy) < EPS) return null;
+    return normalizeDeg(Math.atan2(dy, dx) * 180 / Math.PI);
+  }
+
+  /**
+   * หมุนทั้งโครงข่าย (ทุกจุด) ให้เส้นที่เลือก (fromName -> toName) มีมุมทิศทางตรงกับ targetAngleDeg พอดี
+   * ใช้กรณีต้องการ "ยึด" เส้นที่รู้แน่ชัดจากแบบจริงว่าเป็นแนวนอนหรือแนวตั้ง มาเป็นแกนอ้างอิงของทั้งโครงข่าย
+   * วิธีทำ: หมุนทั้งระบบรอบจุด A (จุดฐานที่ตรึงอยู่ (0,0) เสมอ) เท่ากับผลต่างมุมที่ต้องการ
+   * เนื่องจากเป็นการหมุนแบบ rigid-body ระยะห่างระหว่างจุดทุกคู่จะไม่เปลี่ยนแปลง
+   */
+  function rotateNetworkToEdgeAngle(fromName, toName, targetAngleDeg) {
+    if (state.order.length < 2) return { ok: false, error: 'ยังไม่มีเส้นฐาน' };
+    if (!state.points[fromName] || !state.points[toName]) {
+      return { ok: false, error: 'ไม่พบจุดที่เลือก' };
+    }
+    const currentAngle = getEdgeAngle(fromName, toName);
+    if (currentAngle === null) {
+      return { ok: false, error: 'จุดสองจุดของเส้นนี้ซ้อนทับกัน คำนวณมุมไม่ได้' };
+    }
+    if (!Number.isFinite(targetAngleDeg)) {
+      return { ok: false, error: 'กรุณากรอกมุมทิศทางเป็นตัวเลข' };
+    }
+    const delta = targetAngleDeg - currentAngle;
+    const newBaseAngle = normalizeDeg(state.baseAngleDeg + delta);
+    const result = updateBaseGeometry({ angleDeg: newBaseAngle });
+    if (!result.ok) return result;
+    return { ok: true, newBaseAngle };
   }
 
   /**
@@ -424,6 +490,44 @@ const Engine = (() => {
     return state.order.length >= 2 ? [state.order[0], state.order[1]] : null;
   }
 
+  /**
+   * ส่งออกสถานะทั้งหมดของโปรเจกต์ (ไม่ใช่แค่พิกัด) เพื่อบันทึกเป็นไฟล์แล้วนำกลับมาโหลดทำงานต่อได้
+   * เก็บทั้งระยะ/จุดอ้างอิง/มุม/ลำดับ เพื่อให้คำนวณย้อนกลับได้ครบ
+   */
+  function exportProject() {
+    return {
+      formatVersion: 1,
+      appName: 'mark-port-coordinate-trilateration',
+      savedAt: new Date().toISOString(),
+      baseAngleDeg: state.baseAngleDeg || 0,
+      order: [...state.order],
+      points: JSON.parse(JSON.stringify(state.points))
+    };
+  }
+
+  /**
+   * โหลดโปรเจกต์ที่เคยบันทึกไว้กลับเข้าสู่ state แล้วคำนวณพิกัดใหม่ทั้งหมด
+   * @param {object} data ออบเจกต์ที่ได้จาก exportProject() (หรือไฟล์ .json ที่ผู้ใช้เลือก)
+   */
+  function loadProject(data) {
+    if (!data || typeof data !== 'object' || !data.points || !Array.isArray(data.order)) {
+      return { ok: false, error: 'ไฟล์โปรเจกต์ไม่ถูกต้องหรือเสียหาย' };
+    }
+    // ตรวจสอบความสอดคล้องเบื้องต้นก่อนแทนที่ state ปัจจุบัน
+    for (const name of data.order) {
+      if (!data.points[name]) {
+        return { ok: false, error: `ข้อมูลไม่ครบถ้วน: ไม่พบจุด "${name}"` };
+      }
+    }
+    state = {
+      points: JSON.parse(JSON.stringify(data.points)),
+      order: [...data.order],
+      baseAngleDeg: Number.isFinite(data.baseAngleDeg) ? data.baseAngleDeg : 0
+    };
+    recomputeAll();
+    return { ok: true, pointCount: state.order.length };
+  }
+
   return {
     reset,
     getState,
@@ -432,6 +536,10 @@ const Engine = (() => {
     hasPoint,
     setBaseLine,
     updateBaseLength,
+    updateBaseGeometry,
+    getBaseAngle,
+    getEdgeAngle,
+    rotateNetworkToEdgeAngle,
     addPoint,
     updatePointGeometry,
     renamePoint,
@@ -439,6 +547,8 @@ const Engine = (() => {
     getEdges,
     getBounds,
     getBaseNames,
+    exportProject,
+    loadProject,
     distance
   };
 })();

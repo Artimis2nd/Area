@@ -522,6 +522,21 @@ canvas.is-hovering-clickable{ cursor:pointer; }
 }
 .modal__body .field-row{ grid-template-columns:1fr 1fr; }
 
+.rotate-box{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:12px;
+  margin-top:2px;
+}
+.quick-angle-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin-top:8px;
+}
+.quick-angle-row .btn{ width:100%; }
+
 .modal__foot{
   display:flex; align-items:center; justify-content:space-between;
   padding:12px 16px;

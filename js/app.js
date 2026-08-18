@@ -21,7 +21,12 @@
   const baseNameA = $('#baseNameA');
   const baseNameB = $('#baseNameB');
   const baseLength = $('#baseLength');
+  const baseAngle = $('#baseAngle');
   const baseMsg = $('#baseMsg');
+
+  const btnSaveProject = $('#btnSaveProject');
+  const btnLoadProject = $('#btnLoadProject');
+  const fileLoadProject = $('#fileLoadProject');
 
   const formAdd = $('#formAdd');
   const refASel = $('#refA');
@@ -101,7 +106,8 @@
     const result = Engine.setBaseLine(
       baseNameA.value,
       baseNameB.value,
-      parseFloat(baseLength.value)
+      parseFloat(baseLength.value),
+      baseAngle.value === '' ? 0 : parseFloat(baseAngle.value)
     );
     if (!result.ok) {
       setMsg(baseMsg, result.error, true);
@@ -109,6 +115,7 @@
     }
     setMsg(baseMsg, `วางเส้นฐาน ${result.names[0]}–${result.names[1]} สำเร็จ`, false);
     formBase.reset();
+    populateRefSelectors();
     refreshAll();
     renderer.fitToView();
     updateZoomLabel();
@@ -179,7 +186,27 @@
     selection = sel;
     renderer.setSelected(sel);
     updateHud();
-    if (sel) openEditModal(sel);
+    if (!sel) return;
+
+    if (sel.type === 'edge') {
+      const edge = Engine.getEdges().find(e => e.id === sel.id);
+      if (edge) applyEdgeAsReference(edge);
+    }
+
+    const activeTab = document.querySelector('.tab.is-active')?.dataset.tab;
+    if (activeTab === 'add' && sel.type === 'edge') {
+      // อยู่ในแท็บ "เพิ่มจุด" และเลือกเส้น -> ตั้งจุดอ้างอิงให้แล้ว ไม่ต้องเปิดโมดัลรบกวน
+      return;
+    }
+    openEditModal(sel);
+  }
+
+  /** ตั้งค่าจุดอ้างอิงที่ 1/2 ในฟอร์ม "เพิ่มจุด" ให้ตรงกับปลายทั้งสองของเส้นที่เลือก */
+  function applyEdgeAsReference(edge) {
+    if (refASel.disabled || refBSel.disabled) return;
+    refASel.value = edge.from;
+    refBSel.value = edge.to;
+    showToast(`ตั้งจุดอ้างอิงเป็น "${edge.from}" และ "${edge.to}" ให้แล้ว`);
   }
 
   function updateHud() {
@@ -223,8 +250,9 @@
         ${!isA ? `
         <label class="field">
           <span>ระยะฐาน A–B (เมตร)</span>
-          <input type="number" id="mBaseLen" step="any" min="0.001" value="${p.x.toFixed(3)}">
-        </label>` : ''}
+          <input type="number" id="mBaseLen" step="any" min="0.001" value="${Engine.distance(Engine.getPoint(nameA), p).toFixed(3)}">
+        </label>
+        <p class="panel__hint" style="margin:0;">ต้องการหมุนทิศทาง? ปิดหน้าต่างนี้แล้วคลิกเลือก "เส้น A–B" บน Canvas หรือในตารางแทน</p>` : ''}
       `;
     } else {
       const names = Engine.getPointNames().filter(n => n !== name && !Engine.getPoint(n).isBase || Engine.getPoint(n).isBase);
@@ -269,31 +297,77 @@
   function openEdgeModal(edgeId) {
     const edge = Engine.getEdges().find(e => e.id === edgeId);
     if (!edge) return;
-    // เส้นแก้ไขผ่านจุดปลายทาง (ownerPoint) เสมอ เพราะเส้นถูกกำหนดโดยระยะของจุดนั้น
     editingContext = { kind: 'edge', edge };
-    const owner = Engine.getPoint(edge.ownerPoint);
     modalTitle.textContent = `แก้ไขเส้น ${edge.from}–${edge.to}`;
 
-    if (edge.isBase) {
-      modalBody.innerHTML = `
-        <p class="panel__hint" style="margin:0 0 6px;">นี่คือเส้นฐาน (Base Line) ของโครงข่ายทั้งหมด</p>
-        <label class="field">
-          <span>ระยะ ${edge.from}–${edge.to} (เมตร)</span>
-          <input type="number" id="mBaseLen" step="any" min="0.001" value="${edge.length.toFixed(3)}">
-        </label>
-      `;
-    } else {
-      const isDistA = edge.isRefA;
-      modalBody.innerHTML = `
-        <p class="panel__hint" style="margin:0 0 6px;">
-          เส้นนี้คือระยะจาก "${edge.from}" ไปยัง "${edge.to}" (แก้ไขระยะของจุด ${edge.to})
+    const currentAngle = Engine.getEdgeAngle(edge.from, edge.to);
+    const angleText = currentAngle === null ? '—' : currentAngle.toFixed(3);
+    const lengthFieldHtml = edge.isBase
+      ? `<label class="field">
+           <span>ระยะ ${edge.from}–${edge.to} (เมตร)</span>
+           <input type="number" id="mBaseLen" step="any" min="0.001" value="${edge.length.toFixed(3)}">
+         </label>`
+      : `<p class="panel__hint" style="margin:0 0 6px;">
+           เส้นนี้คือระยะจาก "${edge.from}" ไปยัง "${edge.to}" (แก้ไขระยะของจุด ${edge.to})
+         </p>
+         <label class="field">
+           <span>ระยะ ${edge.from}–${edge.to} (เมตร)</span>
+           <input type="number" id="mEdgeLen" step="any" min="0.001" value="${edge.length.toFixed(3)}">
+         </label>`;
+
+    modalBody.innerHTML = `
+      ${lengthFieldHtml}
+
+      <div class="rotate-box">
+        <p class="panel__hint" style="margin:0 0 8px;">
+          🧭 <strong>ตั้งเส้นนี้เป็นแนวอ้างอิง</strong> — ถ้ารู้ว่าเส้นนี้คือแนวนอน/แนวตั้งจริงของแบบ
+          หมุนทั้งโครงข่ายให้เข้ากับมุมนี้ได้ทันที (ระยะทุกเส้นจะไม่เปลี่ยนแปลง)
         </p>
+        <p class="panel__hint" style="margin:0 0 8px;">มุมทิศทางปัจจุบันของเส้นนี้: <strong style="color:var(--cyan)">${angleText}°</strong></p>
         <label class="field">
-          <span>ระยะ ${edge.from}–${edge.to} (เมตร)</span>
-          <input type="number" id="mEdgeLen" step="any" min="0.001" value="${edge.length.toFixed(3)}">
+          <span>ตั้งมุมทิศทางใหม่ (องศา)</span>
+          <input type="number" id="mRotateAngle" step="any" placeholder="เช่น 0">
         </label>
-      `;
-    }
+        <div class="quick-angle-row">
+          <button type="button" class="btn btn--ghost btn--small" data-quick-angle="0">แนวนอน 0°</button>
+          <button type="button" class="btn btn--ghost btn--small" data-quick-angle="90">แนวตั้ง 90°</button>
+          <button type="button" class="btn btn--ghost btn--small" data-quick-angle="180">แนวนอน 180°</button>
+          <button type="button" class="btn btn--ghost btn--small" data-quick-angle="270">แนวตั้ง 270°</button>
+        </div>
+        <button type="button" class="btn btn--accent" id="mApplyRotate" style="width:100%;margin-top:10px;">
+          🧭 หมุนทั้งโครงข่ายให้เส้นนี้เป็นมุมที่ตั้ง
+        </button>
+      </div>
+    `;
+
+    // ปุ่มลัดตั้งค่ามุม
+    modalBody.querySelectorAll('[data-quick-angle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $('#mRotateAngle').value = btn.dataset.quickAngle;
+      });
+    });
+
+    // ปุ่มหมุนทั้งโครงข่าย (แยกอิสระจากปุ่ม "บันทึก" หลัก เพราะกระทบทุกจุดในภาพ)
+    $('#mApplyRotate').addEventListener('click', () => {
+      const angleVal = $('#mRotateAngle').value;
+      if (angleVal === '') {
+        showToast('กรุณากรอกหรือเลือกมุมทิศทางก่อน', true);
+        return;
+      }
+      const confirmed = window.confirm(
+        `หมุนทั้งโครงข่ายให้เส้น ${edge.from}–${edge.to} เป็นมุม ${angleVal}° ?\nจุดทุกจุดจะถูกคำนวณตำแหน่งใหม่ (ระยะทางระหว่างจุดจะไม่เปลี่ยนแปลง)`
+      );
+      if (!confirmed) return;
+      const r = Engine.rotateNetworkToEdgeAngle(edge.from, edge.to, parseFloat(angleVal));
+      if (!r.ok) { showToast(r.error, true); return; }
+      hideModal();
+      populateRefSelectors();
+      refreshAll();
+      renderer.fitToView();
+      updateZoomLabel();
+      showToast(`หมุนโครงข่ายให้เส้น ${edge.from}–${edge.to} เป็นมุม ${angleVal}° สำเร็จ`);
+    });
+
     modalDelete.style.display = 'none'; // ลบเส้นทำผ่านการลบจุดปลายทางแทน เพื่อความชัดเจนของโครงสร้าง
     showModal();
   }
@@ -328,13 +402,13 @@
 
       if (p.isBase) {
         const baseLenInput = $('#mBaseLen');
-        // เปลี่ยนชื่อก่อน (ถ้ามี) แล้วค่อยอัปเดตความยาว
+        // เปลี่ยนชื่อก่อน (ถ้ามี) แล้วค่อยอัปเดตความยาว (คงมุมทิศทางเดิม)
         if (newName && newName !== name) {
           const r = Engine.renamePoint(name, newName);
           if (!r.ok) { showToast(r.error, true); return; }
         }
         if (baseLenInput) {
-          const r2 = Engine.updateBaseLength(parseFloat(baseLenInput.value));
+          const r2 = Engine.updateBaseGeometry({ length: baseLenInput.value });
           if (!r2.ok) { showToast(r2.error, true); return; }
         }
         showToast('บันทึกการแก้ไขจุดฐานสำเร็จ');
@@ -357,7 +431,7 @@
     } else if (editingContext.kind === 'edge') {
       const edge = editingContext.edge;
       if (edge.isBase) {
-        const r = Engine.updateBaseLength(parseFloat($('#mBaseLen').value));
+        const r = Engine.updateBaseGeometry({ length: $('#mBaseLen').value });
         if (!r.ok) { showToast(r.error, true); return; }
         showToast('อัปเดตระยะเส้นฐานแล้ว');
       } else {
@@ -460,7 +534,15 @@
       refreshAll();
       showToast(r.clearedAll ? 'ลบจุดฐาน — ล้างโครงข่ายทั้งหมดแล้ว' : `ลบจุด ${r.removed.join(', ')} แล้ว`);
     } else if (action === 'edit-edge') {
-      selectItem({ type: 'edge', id: btn.dataset.id });
+      // กดปุ่ม "แก้ไข" ในตารางถือเป็นความตั้งใจแก้ไขเส้นโดยตรง -> เปิดโมดัลเสมอ
+      // (ต่างจากคลิกเลือกเส้นบน Canvas ขณะอยู่แท็บ "เพิ่มจุด" ซึ่งจะแค่ตั้งจุดอ้างอิงให้)
+      const id = btn.dataset.id;
+      selection = { type: 'edge', id };
+      renderer.setSelected(selection);
+      updateHud();
+      const edge = Engine.getEdges().find(e => e.id === id);
+      if (edge) applyEdgeAsReference(edge);
+      openEditModal(selection);
     }
   });
 
@@ -474,6 +556,64 @@
   }
   // อัปเดตป้ายซูมทุกครั้งที่มีการ wheel/pinch (renderer วาดใหม่ตลอด จึงตั้ง interval เบา ๆ)
   setInterval(updateZoomLabel, 300);
+
+  // ================================================ SAVE / LOAD PROJECT
+  // บันทึกโปรเจกต์ทั้งหมด (ระยะ/จุดอ้างอิง/มุม) เป็นไฟล์ .json เพื่อนำกลับมาโหลดแก้ไขต่อได้
+  btnSaveProject.addEventListener('click', () => {
+    if (Engine.getPointNames().length === 0) {
+      showToast('ยังไม่มีข้อมูลให้บันทึก', true);
+      return;
+    }
+    const project = Engine.exportProject();
+    const dateTag = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadFile(JSON.stringify(project, null, 2), `trilateration_project_${dateTag}.json`, 'application/json');
+    showToast('บันทึกโปรเจกต์สำเร็จ — เก็บไฟล์นี้ไว้เปิดกลับมาทำต่อได้');
+  });
+
+  // เปิด file picker เมื่อกดปุ่ม "โหลดโปรเจกต์"
+  btnLoadProject.addEventListener('click', () => {
+    fileLoadProject.value = ''; // เคลียร์ค่าเดิม เผื่อเลือกไฟล์เดิมซ้ำ
+    fileLoadProject.click();
+  });
+
+  fileLoadProject.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const proceed = () => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        let data;
+        try {
+          data = JSON.parse(reader.result);
+        } catch (err) {
+          showToast('ไฟล์นี้ไม่ใช่ JSON ที่ถูกต้อง', true);
+          return;
+        }
+        const result = Engine.loadProject(data);
+        if (!result.ok) {
+          showToast(result.error, true);
+          return;
+        }
+        selection = null;
+        renderer.setSelected(null);
+        populateRefSelectors();
+        refreshAll();
+        renderer.fitToView();
+        updateZoomLabel();
+        switchToTab('table');
+        showToast(`โหลดโปรเจกต์สำเร็จ (${result.pointCount} จุด) — แก้ไขต่อได้เลย`);
+      };
+      reader.onerror = () => showToast('อ่านไฟล์ไม่สำเร็จ', true);
+      reader.readAsText(file);
+    };
+
+    if (Engine.getPointNames().length > 0) {
+      const confirmed = window.confirm('การโหลดโปรเจกต์จะแทนที่ข้อมูลปัจจุบันทั้งหมด ต้องการดำเนินการต่อหรือไม่?');
+      if (!confirmed) return;
+    }
+    proceed();
+  });
 
   // =============================================================== EXPORT
   btnExportCsv.addEventListener('click', () => {

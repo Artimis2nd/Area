@@ -67,17 +67,10 @@
             <input type="text" id="baseNameB" placeholder="B" maxlength="12">
           </label>
         </div>
-        <div class="field-row">
-          <label class="field">
-            <span>ระยะ A–B (เมตร)</span>
-            <input type="number" id="baseLength" step="any" min="0.001" placeholder="เช่น 25.000" required>
-          </label>
-          <label class="field">
-            <span>มุมทิศทาง (องศา)</span>
-            <input type="number" id="baseAngle" step="any" value="0" placeholder="0 = แนวแกน X">
-          </label>
-        </div>
-        <p class="panel__hint" style="margin:-4px 0 0;">มุมวัดทวนเข็มนาฬิกาจากแกน X (0° = แนวราบ, 90° = แนวตั้ง) ใช้หมุนทิศทางเส้นฐานทั้งโครงข่าย</p>
+        <label class="field">
+          <span>ระยะ A–B (เมตร)</span>
+          <input type="number" id="baseLength" step="any" min="0.001" placeholder="เช่น 25.000" required>
+        </label>
         <button type="submit" class="btn btn--primary">วางเส้นฐาน A–B</button>
         <p class="form__msg" id="baseMsg"></p>
       </form>
@@ -85,7 +78,7 @@
 
     <!-- ---- Panel: Step 2 Add point by trilateration ---- -->
     <section class="panel" data-panel="add">
-      <p class="panel__hint">เลือกจุดอ้างอิง 2 จุดที่มีอยู่แล้ว แล้วกรอกระยะจากแต่ละจุดไปยังจุดใหม่ — <strong>เคล็ดลับ:</strong> อยู่แท็บนี้แล้วคลิกเส้นบน Canvas หรือในตาราง จะตั้งจุดอ้างอิงให้อัตโนมัติ ไม่ต้องเลือกจากดรอปดาวน์เอง</p>
+      <p class="panel__hint">เลือกจุดอ้างอิง 2 จุดที่มีอยู่แล้ว แล้วกรอกระยะจากแต่ละจุดไปยังจุดใหม่</p>
 
       <form id="formAdd" class="form">
         <div class="field-row">
@@ -158,14 +151,6 @@
     <!-- ---- Export & utility actions ---- -->
     <section class="actions">
       <button class="btn btn--ghost" id="btnFit">⤢ จัดกึ่งกลาง / Auto-Fit</button>
-
-      <div class="actions__row">
-        <button class="btn btn--accent" id="btnSaveProject">💾 บันทึกโปรเจกต์</button>
-        <button class="btn btn--ghost" id="btnLoadProject">📂 โหลดโปรเจกต์</button>
-      </div>
-      <input type="file" id="fileLoadProject" accept=".json,application/json" style="display:none;">
-      <p class="panel__hint" style="margin:-2px 0 4px;">บันทึกเป็นไฟล์ .json เก็บระยะ/จุดอ้างอิงทั้งหมด เปิดกลับมาแก้ไขต่อได้ทุกเมื่อ</p>
-
       <div class="actions__row">
         <button class="btn btn--ghost" id="btnExportCsv">Export CSV</button>
         <button class="btn btn--ghost" id="btnExportJson">Export JSON</button>
