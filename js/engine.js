@@ -111,6 +111,20 @@ const Engine = (() => {
   function recomputeSingle(name) {
     const p = state.points[name];
     if (!p || p.isBase) return true;
+
+    if (p.kind === 'offset') {
+      // จุดมุมฉาก: F = E + EF ⟂ CE ที่จุด E (มุมฉาก 90°)
+      const C = state.points[p.refA]; // จุดปลายอีกด้านของเส้นฐาน CE
+      const E = state.points[p.refB]; // จุด apex (จุดที่มุมฉาก)
+      if (!C || !E) return false;
+      const dirCE = Math.atan2(E.y - C.y, E.x - C.x);
+      const perp = dirCE + (p.flip ? Math.PI / 2 : -Math.PI / 2);
+      p.x = E.x + p.offsetLen * Math.cos(perp);
+      p.y = E.y + p.offsetLen * Math.sin(perp);
+      p.error = false;
+      return true;
+    }
+
     const A = state.points[p.refA];
     const B = state.points[p.refB];
     if (!A || !B) return false;
@@ -310,6 +324,59 @@ const Engine = (() => {
     return { ok: true, name: finalName, x: result.x, y: result.y };
   }
 
+  /** เพิ่มเส้นวัดไปยัง extraEdges (special=true -> เส้นพิเศษสีแดง) โดยกันซ้ำกับเส้นที่มีอยู่ */
+  function _pushExtraEdge(from, to, special) {
+    if (hasEdgeBetween(from, to)) return;
+    state.extraEdges.push({ from, to, special: !!special });
+  }
+
+  /**
+   * สร้าง "จุดมุมฉาก" (right-angle offset): จากเส้น CE + มุมฉาก 90° ที่จุด E + ระยะ EF
+   * -> สร้างจุด F ตั้งฉาก CE ที่จุด E พร้อมเส้น EF (ธรรมดา) + เส้น CF (special: สีแดง)
+   *    แล้วคำนวณความยาว CF (ด้านตรงข้ามมุมฉาก) ให้โดยอัตโนมัติ
+   */
+  function addRightAnglePoint({ name, refC, refE, offsetLen, flip }) {
+    if (!refC || !refE || !state.points[refC] || !state.points[refE]) {
+      return { ok: false, error: 'กรุณาเลือกจุด C และ E ที่มีอยู่จริง' };
+    }
+    if (refC === refE) {
+      return { ok: false, error: 'จุด C และ E ต้องไม่ใช่จุดเดียวกัน' };
+    }
+    offsetLen = parseFloat(offsetLen);
+    if (!(offsetLen > 0)) {
+      return { ok: false, error: 'ระยะ EF ต้องมากกว่า 0' };
+    }
+    let finalName = (name || '').trim();
+    if (!finalName) {
+      finalName = nextAutoName();
+    } else if (state.points[finalName]) {
+      return { ok: false, error: `มีจุดชื่อ "${finalName}" อยู่แล้ว` };
+    }
+
+    const C = state.points[refC];
+    const E = state.points[refE];
+    const dirCE = Math.atan2(E.y - C.y, E.x - C.x);
+    const perp = dirCE + (flip ? Math.PI / 2 : -Math.PI / 2);
+    const x = E.x + offsetLen * Math.cos(perp);
+    const y = E.y + offsetLen * Math.sin(perp);
+
+    state.points[finalName] = {
+      x, y,
+      isBase: false,
+      kind: 'offset',
+      refA: refC, refB: refE,
+      offsetLen,
+      flip: !!flip
+    };
+    state.order.push(finalName);
+    // เส้น EF (ธรรมดา) + เส้น CF (special: แดง)
+    _pushExtraEdge(refE, finalName, false); // EF
+    _pushExtraEdge(refC, finalName, true);  // CF (แดง)
+
+    const cf = distance(C, state.points[finalName]);
+    return { ok: true, name: finalName, x, y, cf, ef: offsetLen };
+  }
+
   /**
    * อัปเดตค่าระยะ/flip ของจุดที่มีอยู่ แล้ว auto-recalculate จุดนั้น + จุดลูกทั้งหมด
    */
@@ -504,6 +571,7 @@ const Engine = (() => {
     state.order.forEach(name => {
       const p = state.points[name];
       if (p.isBase) return;
+      if (p.kind === 'offset') return; // เส้น EF/CF ของจุดมุมฉากจัดเป็น extra แล้ว
       const A = state.points[p.refA];
       const B = state.points[p.refB];
       if (A) {
@@ -536,7 +604,8 @@ const Engine = (() => {
           from: e.from, to: e.to,
           length: distance(A, B),
           isBase: false,
-          isExtra: true
+          isExtra: true,
+          special: !!e.special
         });
       }
     });
@@ -595,7 +664,7 @@ const Engine = (() => {
     const extraEdges = Array.isArray(data.extraEdges)
       ? data.extraEdges
           .filter(e => e && e.from && e.to && e.from !== e.to && data.points[e.from] && data.points[e.to])
-          .map(e => ({ from: e.from, to: e.to }))
+          .map(e => ({ from: e.from, to: e.to, special: !!e.special }))
       : [];
     state = {
       points: JSON.parse(JSON.stringify(data.points)),
@@ -625,6 +694,7 @@ const Engine = (() => {
     deletePoint,
     addClosureEdge,
     addExtraEdge,
+    addRightAnglePoint,
     removeExtraEdge,
     getEdges,
     getBounds,
