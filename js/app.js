@@ -37,6 +37,15 @@
   const flipSideInput = $('#flipSide');
   const addMsg = $('#addMsg');
 
+  const formClosure = $('#formClosure');
+  const clEdgeA = $('#clEdgeA');
+  const clEdgeB = $('#clEdgeB');
+  const closureMsg = $('#closureMsg');
+  const formMeasurePt = $('#formMeasurePt');
+  const clPointA = $('#clPointA');
+  const clPointB = $('#clPointB');
+  const measurePtMsg = $('#measurePtMsg');
+
   const pointsTableBody = $('#pointsTable tbody');
   const edgesTableBody = $('#edgesTable tbody');
   const pointCountEl = $('#pointCount');
@@ -75,7 +84,7 @@
   // ------------------------------------------------------------- renderer
   const renderer = new Renderer(
     canvas,
-    (sel) => { selectItem(sel); },
+    (sel) => { onCanvasSelect(sel); },
     () => { /* hover handled internally by renderer for cursor/highlight */ }
   );
 
@@ -181,6 +190,165 @@
       } else {
         sel.value = names[names.length - 1];
       }
+    });
+  }
+
+  // ============================================= STEP 3 : CLOSURE (เส้นวัด)
+  formClosure.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const result = Engine.addClosureEdge(clEdgeA.value, clEdgeB.value);
+    if (!result.ok) {
+      setMsg(closureMsg, result.error, true);
+      return;
+    }
+    setMsg(closureMsg, `สร้างเส้น ${result.from}–${result.to} แล้ว (จุดร่วม ${result.shared}) ยาว ${result.length.toFixed(3)} ม.`, false);
+    refreshAll();
+    clearPicks();
+  });
+
+  function populateClosureSelectors() {
+    const edges = Engine.getEdges();
+    [clEdgeA, clEdgeB].forEach((sel, idx) => {
+      const prevVal = sel.value;
+      sel.innerHTML = '';
+      if (edges.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = 'ยังไม่มีเส้น';
+        opt.value = '';
+        sel.appendChild(opt);
+        sel.disabled = true;
+        return;
+      }
+      sel.disabled = false;
+      edges.forEach(edge => {
+        const opt = document.createElement('option');
+        opt.value = edge.id;
+        opt.textContent = `${edge.from}–${edge.to}`;
+        sel.appendChild(opt);
+      });
+      if (edges.some(e => e.id === prevVal)) {
+        sel.value = prevVal;
+      } else if (idx === 0) {
+        sel.value = edges[Math.max(0, edges.length - 2)].id;
+      } else {
+        sel.value = edges[edges.length - 1].id;
+      }
+    });
+  }
+
+  // ====================== MEASURE MODE (toggle + คลิกเลือกบนหน้าจอ) ==========
+  const measureModeBtns = document.querySelectorAll('[data-measure-mode]');
+  let measureMode = 'edge';             // 'edge' | 'point'
+  let pickEdge = { a: null, b: null };  // edge ids ของ เส้นที่ 1/2
+  let pickPoint = { a: null, b: null }; // ชื่อจุด ของ จุดที่ 1/2
+
+  function switchMeasureMode(mode) {
+    measureMode = mode;
+    measureModeBtns.forEach(b => b.classList.toggle('is-active', b.dataset.measureMode === mode));
+    formClosure.style.display = mode === 'edge' ? '' : 'none';
+    formMeasurePt.style.display = mode === 'point' ? '' : 'none';
+    clearPicks();
+  }
+
+  measureModeBtns.forEach(btn => {
+    btn.addEventListener('click', () => switchMeasureMode(btn.dataset.measureMode));
+  });
+
+  function clearPicks() {
+    pickEdge = { a: null, b: null };
+    pickPoint = { a: null, b: null };
+    selection = null;
+    renderer.setSelected(null);
+    updateHud();
+  }
+
+  /** นำค่าที่คลิกเลือกไปใส่ช่องดรอปดาวน์ที่ตรงกัน ให้เห็น "เส้นที่1/2" หรือ "จุดที่1/2" */
+  function syncPicksToSelects() {
+    if (measureMode === 'edge') {
+      clEdgeA.value = pickEdge.a || clEdgeA.value;
+      clEdgeB.value = pickEdge.b || clEdgeB.value;
+    } else {
+      clPointA.value = pickPoint.a || clPointA.value;
+      clPointB.value = pickPoint.b || clPointB.value;
+    }
+  }
+
+  /** ตอนอยู่แท็บ "เส้นวัด": คลิกเส้น/จุดบนหน้าจอ = เติม เส้นที่1/2 หรือ จุดที่1/2 (ไม่เปิดป็อปอัพ, ไม่ auto-create) */
+  function handleMeasurePick(sel) {
+    if (!sel) return;
+    const isEdgeMode = measureMode === 'edge';
+    const msgEl = isEdgeMode ? closureMsg : measurePtMsg;
+    const label = isEdgeMode ? 'เส้น' : 'จุด';
+    if (isEdgeMode && sel.type !== 'edge') { showToast(`โหมดนี้ให้คลิก${label} 2 ${label}`, true); return; }
+    if (!isEdgeMode && sel.type !== 'point') { showToast(`โหมดนี้ให้คลิก${label} 2 ${label}`, true); return; }
+
+    const arr = isEdgeMode ? pickEdge : pickPoint;
+    const id = sel.id;
+
+    // ถ้าจับคู่ครบแล้ว -> เริ่มคู่ใหม่
+    if (arr.a !== null && arr.b !== null) { arr.a = null; arr.b = null; }
+
+    if (arr.a === null) {
+      arr.a = id;
+      setMsg(msgEl, `เลือก${label}ที่ 1 แล้ว — คลิก${label}อีก 1 เพื่อเป็น${label}ที่ 2`, false);
+    } else if (arr.a === id) {
+      showToast(`เลือก${label}นี้ไว้แล้ว — กรุณาเลือก${label}อื่น`, true);
+      return;
+    } else {
+      arr.b = id;
+      setMsg(msgEl, `ครบ ${label}ที่ 1 + ${label}ที่ 2 — กดปุ่ม "สร้าง" ได้เลย`, false);
+    }
+    syncPicksToSelects();
+    selection = sel;
+    renderer.setSelected(sel);
+    updateHud();
+  }
+
+  /** handler คลิกบนหน้าจอ: ถ้าอยู่แท็บ "เส้นวัด" ให้เลือกเส้น/จุด, แท็บอื่นใช้ work flow เดิม */
+  function onCanvasSelect(sel) {
+    const activeTab = document.querySelector('.tab.is-active')?.dataset.tab;
+    if (activeTab === 'line') {
+      handleMeasurePick(sel);
+      return;
+    }
+    selectItem(sel);
+  }
+
+  // เพิ่มเส้นวัดจาก 2 จุด (โหมด "จาก 2 จุด")
+  formMeasurePt.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const a = pickPoint.a || clPointA.value;
+    const b = pickPoint.b || clPointB.value;
+    const result = Engine.addExtraEdge(a, b);
+    if (!result.ok) { setMsg(measurePtMsg, result.error, true); return; }
+    setMsg(measurePtMsg, `เพิ่มเส้นวัด ${result.from}–${result.to} แล้ว ยาว ${result.length.toFixed(3)} ม.`, false);
+    refreshAll();
+    clearPicks();
+  });
+
+  function populatePointMeasureSelectors() {
+    const names = Engine.getPointNames();
+    [clPointA, clPointB].forEach((sel, idx) => {
+      const prevVal = sel.value;
+      sel.innerHTML = '';
+      if (names.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = 'ยังไม่มีจุด';
+        opt.value = '';
+        sel.appendChild(opt);
+        sel.disabled = true;
+        return;
+      }
+      sel.disabled = false;
+      names.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        sel.appendChild(opt);
+      });
+      if (names.includes(prevVal)) sel.value = prevVal;
+      else if (idx === 0) sel.value = names[Math.max(0, names.length - 2)];
+      else sel.value = names[names.length - 1];
     });
   }
 
@@ -309,13 +477,19 @@
            <span>ระยะ ${edge.from}–${edge.to} (เมตร)</span>
            <input type="number" id="mBaseLen" step="any" min="0.001" value="${edge.length.toFixed(3)}">
          </label>`
-      : `<p class="panel__hint" style="margin:0 0 6px;">
-           เส้นนี้คือระยะจาก "${edge.from}" ไปยัง "${edge.to}" (แก้ไขระยะของจุด ${edge.to})
-         </p>
-         <label class="field">
-           <span>ระยะ ${edge.from}–${edge.to} (เมตร)</span>
-           <input type="number" id="mEdgeLen" step="any" min="0.001" value="${edge.length.toFixed(3)}">
-         </label>`;
+      : edge.isExtra
+        ? `<div class="rotate-box" style="margin-top:0;">
+             <p class="panel__hint" style="margin:0;">เส้นวัด (closure) — ความยาวคำนวณจากพิกัดจริงโดยอัตโนมัติ</p>
+             <p class="panel__hint" style="margin:6px 0 0;"><strong>ความยาว ${edge.from}–${edge.to}:</strong>
+               <span style="color:var(--cyan);font-family:var(--font-mono);">${edge.length.toFixed(3)} ม.</span></p>
+           </div>`
+        : `<p class="panel__hint" style="margin:0 0 6px;">
+             เส้นนี้คือระยะจาก "${edge.from}" ไปยัง "${edge.to}" (แก้ไขระยะของจุด ${edge.to})
+           </p>
+           <label class="field">
+             <span>ระยะ ${edge.from}–${edge.to} (เมตร)</span>
+             <input type="number" id="mEdgeLen" step="any" min="0.001" value="${edge.length.toFixed(3)}">
+           </label>`;
 
     modalBody.innerHTML = `
       ${lengthFieldHtml}
@@ -370,7 +544,7 @@
       showToast(`หมุนโครงข่ายให้เส้น ${edge.from}–${edge.to} เป็นมุม ${angleVal}° สำเร็จ`);
     });
 
-    modalDelete.style.display = 'none'; // ลบเส้นทำผ่านการลบจุดปลายทางแทน เพื่อความชัดเจนของโครงสร้าง
+    modalDelete.style.display = edge.isExtra ? '' : 'none'; // เส้นวัดลบได้โดยตรง, เส้นโครงสร้างลบผ่านการลบจุดปลายทางแทน
     showModal();
   }
 
@@ -432,7 +606,9 @@
       }
     } else if (editingContext.kind === 'edge') {
       const edge = editingContext.edge;
-      if (edge.isBase) {
+      if (edge.isExtra) {
+        // เส้นวัดไม่มีค่าความยาวให้แก้ -> ปิดโมดัลเฉย ๆ
+      } else if (edge.isBase) {
         const r = Engine.updateBaseGeometry({ length: $('#mBaseLen').value });
         if (!r.ok) { showToast(r.error, true); return; }
         showToast('อัปเดตระยะเส้นฐานแล้ว');
@@ -452,7 +628,18 @@
   });
 
   modalDelete.addEventListener('click', () => {
-    if (!editingContext || editingContext.kind !== 'point') return;
+    if (!editingContext) return;
+    if (editingContext.kind === 'edge' && editingContext.edge.isExtra) {
+      const edge = editingContext.edge;
+      const confirmed = window.confirm(`ลบเส้นวัด ${edge.from} – ${edge.to} ?`);
+      if (!confirmed) return;
+      Engine.removeExtraEdge(edge.from, edge.to);
+      hideModal();
+      refreshAll();
+      showToast(`ลบเส้นวัด ${edge.from} – ${edge.to} แล้ว`);
+      return;
+    }
+    if (editingContext.kind !== 'point') return;
     const name = editingContext.name;
     const confirmed = window.confirm(
       `ลบจุด "${name}" และจุดลูกทั้งหมดที่อ้างอิงถึงจุดนี้?\nการกระทำนี้ไม่สามารถย้อนกลับได้`
@@ -509,10 +696,11 @@
       edges.forEach(edge => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${escapeHtml(edge.from)} – ${escapeHtml(edge.to)}${edge.isBase ? '<span class="tag-base">BASE</span>' : ''}</td>
+          <td>${escapeHtml(edge.from)} – ${escapeHtml(edge.to)}${edge.isBase ? '<span class="tag-base">BASE</span>' : ''}${edge.isExtra ? '<span class="tag-base">MEASURE</span>' : ''}</td>
           <td>${Number.isNaN(edge.length) ? '⚠ ERR' : edge.length.toFixed(3)}</td>
           <td class="actions-cell">
             <button class="btn btn--ghost btn--small" data-action="edit-edge" data-id="${escapeHtml(edge.id)}">แก้ไข</button>
+            ${edge.isExtra ? `<button class="btn btn--danger-ghost btn--small" data-action="delete-extra-edge" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}">ลบ</button>` : ''}
           </td>
         `;
         edgesTableBody.appendChild(tr);
@@ -545,6 +733,13 @@
       const edge = Engine.getEdges().find(e => e.id === id);
       if (edge) applyEdgeAsReference(edge);
       openEditModal(selection);
+    } else if (action === 'delete-extra-edge') {
+      const from = btn.dataset.from, to = btn.dataset.to;
+      const confirmed = window.confirm(`ลบเส้นวัด ${from} – ${to} ?`);
+      if (!confirmed) return;
+      Engine.removeExtraEdge(from, to);
+      refreshAll();
+      showToast(`ลบเส้นวัด ${from} – ${to} แล้ว`);
     }
   });
 
@@ -699,6 +894,8 @@
     const edges = Engine.getEdges();
     renderer.setData(state.points, edges);
     renderTables();
+    populateClosureSelectors();
+    populatePointMeasureSelectors();
     updateHud();
     stageEmpty.classList.toggle('is-visible', state.order.length === 0);
   }

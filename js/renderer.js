@@ -204,9 +204,11 @@ class Renderer {
 
       ctx.save();
       ctx.lineWidth = isSel ? 3 : 2;
-      ctx.strokeStyle = hasError ? '#E1595A' : (isSel ? '#E8A33D' : (isHov ? '#7FE3D8' : '#4FD1C5'));
+      let stroke = hasError ? '#E1595A' : (isSel ? '#E8A33D' : (isHov ? '#7FE3D8' : '#4FD1C5'));
+      if (edge.isExtra) stroke = isSel ? '#E8A33D' : (isHov ? '#F2C879' : '#D9A954'); // เส้นวัด/ปิด: ส้มอมเหลือง เส้นประ
+      ctx.strokeStyle = stroke;
       ctx.globalAlpha = edge.isBase ? 1 : 0.85;
-      if (!edge.isBase) ctx.setLineDash([]);
+      ctx.setLineDash(edge.isExtra ? [7, 5] : []);
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
       ctx.lineTo(p2.x, p2.y);

@@ -49,6 +49,7 @@
     <nav class="tabs" id="tabs">
       <button class="tab is-active" data-tab="setup">1 · เส้นฐาน</button>
       <button class="tab" data-tab="add">2 · เพิ่มจุด</button>
+      <button class="tab" data-tab="line">3 · เส้นวัด</button>
       <button class="tab" data-tab="table">รายการ</button>
     </nav>
 
@@ -123,6 +124,51 @@
 
         <button type="submit" class="btn btn--accent">+ เพิ่มจุดใหม่</button>
         <p class="form__msg" id="addMsg"></p>
+      </form>
+    </section>
+
+    <!-- ---- Panel: Step 3 Closure / measure line ---- -->
+    <section class="panel" data-panel="line">
+      <p class="panel__hint">
+        เลือก <strong>เส้นที่ต่อกัน 2 เส้น</strong> (มีจุดร่วม 1 จุด) หรือเลือกจุด 2 จุดตรง ๆ —
+        จะได้เส้นพร้อมความยาวคำนวณจากพิกัดจริงโดยอัตโนมัติ <em>ไม่ต้องกรอกความยาว</em>
+      </p>
+
+      <div class="measure-mode">
+        <button type="button" class="btn btn--ghost is-active" data-measure-mode="edge">จาก 2 เส้น</button>
+        <button type="button" class="btn btn--ghost" data-measure-mode="point">จาก 2 จุด</button>
+      </div>
+
+      <form id="formClosure" class="form measure-form" data-form="edge">
+        <div class="field-row">
+          <label class="field">
+            <span>เส้นที่ 1</span>
+            <select id="clEdgeA" required></select>
+          </label>
+          <label class="field">
+            <span>เส้นที่ 2</span>
+            <select id="clEdgeB" required></select>
+          </label>
+        </div>
+        <p class="panel__hint" style="margin:0;">💡 หรือ คลิกเส้น 2 เส้นบนหน้าจอ — จะเติมเข้า "เส้นที่ 1/2" ให้อัตโนมัติ</p>
+        <button type="submit" class="btn btn--accent">+ สร้างเส้นที่ 3 (หาจุดร่วมเอง)</button>
+        <p class="form__msg" id="closureMsg"></p>
+      </form>
+
+      <form id="formMeasurePt" class="form measure-form" data-form="point" style="display:none;">
+        <div class="field-row">
+          <label class="field">
+            <span>จุดที่ 1</span>
+            <select id="clPointA" required></select>
+          </label>
+          <label class="field">
+            <span>จุดที่ 2</span>
+            <select id="clPointB" required></select>
+          </label>
+        </div>
+        <p class="panel__hint" style="margin:0;">💡 หรือ คลิกจุด 2 จุดบนหน้าจอ — จะเติมเข้า "จุดที่ 1/2" ให้อัตโนมัติ</p>
+        <button type="submit" class="btn btn--accent">+ เพิ่มเส้นวัด (จาก 2 จุด)</button>
+        <p class="form__msg" id="measurePtMsg"></p>
       </form>
     </section>
 

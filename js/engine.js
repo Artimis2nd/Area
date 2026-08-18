@@ -24,7 +24,8 @@ const Engine = (() => {
   let state = {
     points: {},   // name -> record
     order: [],    // array of names, insertion order
-    baseAngleDeg: 0 // มุมทิศทาง (azimuth) ของเส้นฐาน A->B วัดจากแกน X ทวนเข็มนาฬิกา (องศา)
+    baseAngleDeg: 0, // มุมทิศทาง (azimuth) ของเส้นฐาน A->B วัดจากแกน X ทวนเข็มนาฬิกา (องศา)
+    extraEdges: [] // เส้นวัด (closure/measure lines): [{ from, to }]
   };
 
   const EPS = 1e-9;
@@ -144,7 +145,7 @@ const Engine = (() => {
 
   /** ล้างข้อมูลทั้งหมด */
   function reset() {
-    state = { points: {}, order: [], baseAngleDeg: 0 };
+    state = { points: {}, order: [], baseAngleDeg: 0, extraEdges: [] };
   }
 
   /** คืนสถานะปัจจุบันแบบ read-only (shallow clone เพื่อความปลอดภัย) */
@@ -388,6 +389,10 @@ const Engine = (() => {
         if (p.refB === oldName) p.refB = newName;
       }
     });
+    state.extraEdges.forEach(e => {
+      if (e.from === oldName) e.from = newName;
+      if (e.to === oldName) e.to = newName;
+    });
 
     return { ok: true };
   }
@@ -418,8 +423,62 @@ const Engine = (() => {
       delete state.points[n];
     });
     state.order = state.order.filter(n => !toRemove.has(n));
+    state.extraEdges = state.extraEdges.filter(e => state.points[e.from] && state.points[e.to]);
 
     return { ok: true, removed: [...toRemove] };
+  }
+
+  // ======================== เส้นวัด (closure / measure lines) ====================
+  /** ตรวจว่ามีเส้นเชื่อม from-to อยู่แล้วหรือไม่ (ทั้งทิศทาง, รวมเส้นโครงสร้าง) */
+  function hasEdgeBetween(from, to) {
+    return getEdges().some(e =>
+      (e.from === from && e.to === to) || (e.from === to && e.to === from)
+    );
+  }
+
+  /** เพิ่มเส้นวัดตรง ๆ ระหว่าง 2 จุดที่มีอยู่ (ความยาวคำนวณจากพิกัดอัตโนมัติ) */
+  function addExtraEdge(from, to) {
+    if (!from || !to || from === to) return { ok: false, error: 'เลือก 2 จุดที่ต่างกัน' };
+    if (!state.points[from] || !state.points[to]) return { ok: false, error: 'ไม่พบจุดที่เลือก' };
+    if (hasEdgeBetween(from, to)) return { ok: false, error: 'มีเส้นเชื่อมจุดคู่นี้อยู่แล้ว' };
+    state.extraEdges.push({ from, to });
+    return { ok: true, from, to, length: distance(state.points[from], state.points[to]) };
+  }
+
+  /** ลบเส้นวัด */
+  function removeExtraEdge(from, to) {
+    const before = state.extraEdges.length;
+    state.extraEdges = state.extraEdges.filter(e =>
+      !((e.from === from && e.to === to) || (e.from === to && e.to === from))
+    );
+    return { ok: before !== state.extraEdges.length };
+  }
+
+  /**
+   * สร้าง "เส้นที่ 3" (closure) จากเส้น 2 เส้นที่ต่อกัน (มีจุดร่วม 1 จุด)
+   * เช่น เส้น BD + DF (จุดร่วม D) -> เส้น BF (ความยาวคำนวณอัตโนมัติ)
+   */
+  function addClosureEdge(edgeAId, edgeBId) {
+    if (edgeAId === edgeBId) return { ok: false, error: 'เลือกเส้นที่ต่างกัน 2 เส้น' };
+    const edges = getEdges();
+    const A = edges.find(e => e.id === edgeAId);
+    const B = edges.find(e => e.id === edgeBId);
+    if (!A || !B) return { ok: false, error: 'ไม่พบเส้นที่เลือก' };
+    const set1 = [A.from, A.to];
+    const set2 = [B.from, B.to];
+    const sharedPoints = set1.filter(n => set2.includes(n));
+    if (sharedPoints.length !== 1) {
+      const err = sharedPoints.length === 0
+        ? 'เส้นทั้งสองไม่ต่อกัน (ไม่มีจุดร่วม)'
+        : 'เส้นทั้งสองซ้ำกัน (มีจุดร่วม 2 จุด)';
+      return { ok: false, error: err };
+    }
+    const shared = sharedPoints[0];
+    const p1 = A.from === shared ? A.to : A.from;
+    const p2 = B.from === shared ? B.to : B.from;
+    const result = addExtraEdge(p1, p2);
+    if (!result.ok) return result;
+    return { ok: true, from: result.from, to: result.to, length: result.length, shared };
   }
 
   /**
@@ -468,6 +527,19 @@ const Engine = (() => {
         });
       }
     });
+    state.extraEdges.forEach(e => {
+      const A = state.points[e.from];
+      const B = state.points[e.to];
+      if (A && B) {
+        edges.push({
+          id: `${e.from}__${e.to}`,
+          from: e.from, to: e.to,
+          length: distance(A, B),
+          isBase: false,
+          isExtra: true
+        });
+      }
+    });
     return edges;
   }
 
@@ -501,7 +573,8 @@ const Engine = (() => {
       savedAt: new Date().toISOString(),
       baseAngleDeg: state.baseAngleDeg || 0,
       order: [...state.order],
-      points: JSON.parse(JSON.stringify(state.points))
+      points: JSON.parse(JSON.stringify(state.points)),
+      extraEdges: state.extraEdges.map(e => ({ from: e.from, to: e.to }))
     };
   }
 
@@ -519,10 +592,16 @@ const Engine = (() => {
         return { ok: false, error: `ข้อมูลไม่ครบถ้วน: ไม่พบจุด "${name}"` };
       }
     }
+    const extraEdges = Array.isArray(data.extraEdges)
+      ? data.extraEdges
+          .filter(e => e && e.from && e.to && e.from !== e.to && data.points[e.from] && data.points[e.to])
+          .map(e => ({ from: e.from, to: e.to }))
+      : [];
     state = {
       points: JSON.parse(JSON.stringify(data.points)),
       order: [...data.order],
-      baseAngleDeg: Number.isFinite(data.baseAngleDeg) ? data.baseAngleDeg : 0
+      baseAngleDeg: Number.isFinite(data.baseAngleDeg) ? data.baseAngleDeg : 0,
+      extraEdges
     };
     recomputeAll();
     return { ok: true, pointCount: state.order.length };
@@ -544,6 +623,9 @@ const Engine = (() => {
     updatePointGeometry,
     renamePoint,
     deletePoint,
+    addClosureEdge,
+    addExtraEdge,
+    removeExtraEdge,
     getEdges,
     getBounds,
     getBaseNames,

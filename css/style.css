@@ -320,6 +320,15 @@ button, input, select{ font-family:inherit; color:inherit; }
 .form__msg.is-error{ color:var(--red); }
 .form__msg.is-ok{ color:var(--cyan); }
 
+/* Measure mode segmented control */
+.measure-mode{ display:flex; gap:6px; margin-bottom:14px; }
+.measure-mode .btn{ flex:1; padding:8px 4px; }
+.measure-mode .btn.is-active{
+  border-color:var(--cyan);
+  color:var(--cyan);
+  background:var(--bg-card-hover);
+}
+
 /* -------------------------------- Tables --------------------------------- */
 .table-head{
   display:flex; align-items:center; justify-content:space-between;
