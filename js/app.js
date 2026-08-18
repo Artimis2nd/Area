@@ -50,6 +50,7 @@
   const zoomInBtn = $('#zoomIn');
   const zoomOutBtn = $('#zoomOut');
   const zoomLevelEl = $('#zoomLevel');
+  const toggleCoords = $('#toggleCoords');
 
   const btnExportCsv = $('#btnExportCsv');
   const btnExportJson = $('#btnExportJson');
@@ -551,6 +552,12 @@
   btnFit.addEventListener('click', () => { renderer.fitToView(); updateZoomLabel(); });
   zoomInBtn.addEventListener('click', () => { renderer.zoomBy(1.2); updateZoomLabel(); });
   zoomOutBtn.addEventListener('click', () => { renderer.zoomBy(1 / 1.2); updateZoomLabel(); });
+
+  // สลับแสดง/ซ่อนตัวเลขพิกัดบนหน้าจอ
+  toggleCoords.addEventListener('change', () => {
+    renderer.showCoords = toggleCoords.checked;
+    renderer.draw();
+  });
 
   function updateZoomLabel() {
     zoomLevelEl.textContent = `${renderer.getZoomPercent()}%`;

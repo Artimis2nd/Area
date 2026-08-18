@@ -27,6 +27,7 @@ class Renderer {
     this.edges = [];
     this.selected = null; // { type, id }
     this.hovered = null;
+    this.showCoords = true; // สลับแสดง/ซ่อนตัวเลขพิกัดใต้จุด (true = แสดง)
 
     this._isPanning = false;
     this._panStart = { x: 0, y: 0 };
@@ -270,11 +271,13 @@ class Renderer {
       ctx.textBaseline = 'bottom';
       ctx.fillText(name, s.x + 10, s.y - 6);
 
-      ctx.font = '500 10px "JetBrains Mono", monospace';
-      ctx.fillStyle = '#8FA1BE';
-      ctx.textBaseline = 'top';
-      const coordText = `${p.x.toFixed(3)}, ${p.y.toFixed(3)}`;
-      ctx.fillText(coordText, s.x + 10, s.y + 5);
+      if (this.showCoords) {
+        ctx.font = '500 10px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#8FA1BE';
+        ctx.textBaseline = 'top';
+        const coordText = `${p.x.toFixed(3)}, ${p.y.toFixed(3)}`;
+        ctx.fillText(coordText, s.x + 10, s.y + 5);
+      }
       ctx.restore();
     });
   }

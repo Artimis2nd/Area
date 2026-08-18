@@ -182,6 +182,11 @@
     <div class="stage__toolbar">
       <span class="stage__tip">ลากเพื่อเลื่อน (Pan) · เลื่อนล้อเม้าส์เพื่อซูม · คลิกจุด/เส้นเพื่อแก้ไข</span>
       <div class="stage__zoom">
+        <label class="switch switch--toolbar" title="แสดง/ซ่อนตัวเลขพิกัดบนหน้าจอ">
+          <input type="checkbox" id="toggleCoords" checked>
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          <span class="switch__label">พิกัด</span>
+        </label>
         <button id="zoomOut" aria-label="ซูมออก">−</button>
         <span id="zoomLevel">100%</span>
         <button id="zoomIn" aria-label="ซูมเข้า">+</button>
