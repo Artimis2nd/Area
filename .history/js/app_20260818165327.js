@@ -46,6 +46,14 @@
   const clPointB = $('#clPointB');
   const measurePtMsg = $('#measurePtMsg');
 
+  const formOffset = $('#formOffset');
+  const offsetRefC = $('#offsetRefC');
+  const offsetRefE = $('#offsetRefE');
+  const offsetLen = $('#offsetLen');
+  const offsetNewName = $('#offsetNewName');
+  const offsetFlip = $('#offsetFlip');
+  const offsetMsg = $('#offsetMsg');
+
   const pointsTableBody = $('#pointsTable tbody');
   const edgesTableBody = $('#edgesTable tbody');
   const pointCountEl = $('#pointCount');
@@ -129,6 +137,7 @@
     formBase.reset();
     populateRefSelectors();
     refreshAll();
+    populateOffsetSelectors();
     renderer.fitToView();
     updateZoomLabel();
     switchToTab('add');
@@ -159,12 +168,13 @@
     formAdd.reset();
     flipSideInput.checked = false;
     populateRefSelectors();
+    populateOffsetSelectors();
     refreshAll();
   });
 
   function populateRefSelectors() {
     const names = Engine.getPointNames();
-    [refASel, refBSel].forEach((sel, idx) => {
+    [refASel, refBSel, offsetRefC, offsetRefE].forEach((sel, idx) => {
       const prevVal = sel.value;
       sel.innerHTML = '';
       if (names.length === 0) {
@@ -185,12 +195,29 @@
       // ค่าเริ่มต้นอัจฉริยะ: refA = จุดก่อนสุดท้าย, refB = จุดล่าสุด (โฟลว์ต่อจุดต่อเนื่อง)
       if (names.includes(prevVal)) {
         sel.value = prevVal;
-      } else if (idx === 0) {
+      } else if (idx === 0 || idx === 2) { // refA, offsetRefC
         sel.value = names[Math.max(0, names.length - 2)];
-      } else {
+      } else { // refB, offsetRefE
         sel.value = names[names.length - 1];
       }
     });
+  }
+
+  // ======================================================= STEP 4 : OFFSET
+  formOffset.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const result = Engine.addRightAnglePoint({
+      name: offsetNewName.value,
+      refC: offsetRefC.value,
+      refE: offsetRefE.value,
+      offsetLen: offsetLen.value,
+      flip: offsetFlip.checked
+    });
+    if (!result.ok) { setMsg(offsetMsg, result.error, true); return; }
+    setMsg(offsetMsg, `สร้างจุดฉาก "${result.name}" สำเร็จ (เส้นปิด C-F ยาว ${result.cf.toFixed(3)} ม.)`, false);
+    formOffset.reset();
+    populateRefSelectors();
+    refreshAll();
   }
 
   // ============================================= STEP 3 : CLOSURE (เส้นวัด)
@@ -650,6 +677,7 @@
     hideModal();
     selection = null;
     renderer.setSelected(null);
+    populateRefSelectors();
     // updateHud();
     populateRefSelectors();
     refreshAll();
@@ -722,6 +750,7 @@
       if (!r.ok) { showToast(r.error, true); return; }
       populateRefSelectors();
       refreshAll();
+      populateOffsetSelectors();
       showToast(r.clearedAll ? 'ลบจุดฐาน — ล้างโครงข่ายทั้งหมดแล้ว' : `ลบจุด ${r.removed.join(', ')} แล้ว`);
     } else if (action === 'edit-edge') {
       // กดปุ่ม "แก้ไข" ในตารางถือเป็นความตั้งใจแก้ไขเส้นโดยตรง -> เปิดโมดัลเสมอ
@@ -895,6 +924,7 @@
     renderer.setData(state.points, edges);
     renderTables();
     populateClosureSelectors();
+    populateRefSelectors(); // for offset tab
     populatePointMeasureSelectors();
     // updateHud();
     stageEmpty.classList.toggle('is-visible', state.order.length === 0);

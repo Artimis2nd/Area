@@ -117,12 +117,13 @@
       </p>
 
       <div class="measure-mode">
-        <button type="button" class="btn btn--ghost is-active" data-measure-mode="edge">จาก 2 เส้น</button>
-        <button type="button" class="btn btn--ghost" data-measure-mode="point">จาก 2 จุด</button>
+        <button type="button" class="btn btn--ghost is-active" data-measure-mode="edge">จาก 2 เส้น (หาจุดร่วม)</button>
+        <button type="button" class="btn btn--ghost" data-measure-mode="point">จาก 2 จุด (วัดระยะ)</button>
+        <button type="button" class="btn btn--ghost" data-measure-mode="perpendicular">จากเส้น (ตั้งฉาก)</button>
       </div>
 
       <form id="formClosure" class="form measure-form" data-form="edge">
-        <div class="field-row">
+        <div class="field-row" style="align-items: flex-end;">
           <label class="field">
             <span>เส้นที่ 1</span>
             <select id="clEdgeA" required></select>
@@ -132,12 +133,12 @@
             <select id="clEdgeB" required></select>
           </label>
         </div>
-        <p class="panel__hint" style="margin:0;">💡 หรือ คลิกเส้น 2 เส้นบนหน้าจอ — จะเติมเข้า "เส้นที่ 1/2" ให้อัตโนมัติ</p>
+        <p class="panel__hint" style="margin:0;">💡 หรือ คลิกเส้น 2 เส้นบน Canvas — จะเติมเข้าฟอร์มให้อัตโนมัติ</p>
         <button type="submit" class="btn btn--accent">+ สร้างเส้นที่ 3 (หาจุดร่วมเอง)</button>
         <p class="form__msg" id="closureMsg"></p>
       </form>
 
-      <form id="formMeasurePt" class="form measure-form" data-form="point" style="display:none;">
+      <form id="formMeasurePt" class="form measure-form" data-form="point" style="display: none;">
         <div class="field-row">
           <label class="field">
             <span>จุดที่ 1</span>
@@ -148,9 +149,34 @@
             <select id="clPointB" required></select>
           </label>
         </div>
-        <p class="panel__hint" style="margin:0;">💡 หรือ คลิกจุด 2 จุดบนหน้าจอ — จะเติมเข้า "จุดที่ 1/2" ให้อัตโนมัติ</p>
+        <p class="panel__hint" style="margin:0;">💡 หรือ คลิกจุด 2 จุดบน Canvas — จะเติมเข้าฟอร์มให้อัตโนมัติ</p>
         <button type="submit" class="btn btn--accent">+ เพิ่มเส้นวัด (จาก 2 จุด)</button>
         <p class="form__msg" id="measurePtMsg"></p>
+      </form>
+
+      <form id="formPerpendicular" class="form measure-form" data-form="perpendicular" style="display: none;">
+        <div class="field-row">
+          <label class="field">
+            <span>เส้นฐาน</span>
+            <select id="perpBaseEdge" required></select>
+          </label>
+          <label class="field">
+            <span>จุดหมุน (Origin)</span>
+            <select id="perpOriginPoint" required></select>
+          </label>
+        </div>
+        <label class="field">
+          <span>ระยะเส้นตั้งฉาก (เมตร)</span>
+          <input type="number" id="perpLength" step="any" min="0.001" required>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="perpFlipSide">
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          <span class="switch__label">Flip Side (สลับทิศทางเส้นตั้งฉาก)</span>
+        </label>
+        <p class="panel__hint" style="margin-top: 8px;">💡 หรือ คลิกเส้นบน Canvas เพื่อเลือกเป็นเส้นฐาน</p>
+        <button type="submit" class="btn btn--accent">+ สร้างเส้นตั้งฉาก</button>
+        <p class="form__msg" id="perpMsg"></p>
       </form>
     </section>
 

@@ -46,6 +46,13 @@
   const clPointB = $('#clPointB');
   const measurePtMsg = $('#measurePtMsg');
 
+  const formPerpendicular = $('#formPerpendicular');
+  const perpBaseEdge = $('#perpBaseEdge');
+  const perpOriginPoint = $('#perpOriginPoint');
+  const perpLength = $('#perpLength');
+  const perpFlipSide = $('#perpFlipSide');
+  const perpMsg = $('#perpMsg');
+
   const pointsTableBody = $('#pointsTable tbody');
   const edgesTableBody = $('#edgesTable tbody');
   const pointCountEl = $('#pointCount');
@@ -238,15 +245,17 @@
 
   // ====================== MEASURE MODE (toggle + คลิกเลือกบนหน้าจอ) ==========
   const measureModeBtns = document.querySelectorAll('[data-measure-mode]');
-  let measureMode = 'edge';             // 'edge' | 'point'
+  let measureMode = 'edge';             // 'edge' | 'point' | 'perpendicular'
   let pickEdge = { a: null, b: null };  // edge ids ของ เส้นที่ 1/2
   let pickPoint = { a: null, b: null }; // ชื่อจุด ของ จุดที่ 1/2
+  let pickPerpEdge = null;              // edge id ของเส้นฐาน
 
   function switchMeasureMode(mode) {
     measureMode = mode;
     measureModeBtns.forEach(b => b.classList.toggle('is-active', b.dataset.measureMode === mode));
     formClosure.style.display = mode === 'edge' ? '' : 'none';
     formMeasurePt.style.display = mode === 'point' ? '' : 'none';
+    formPerpendicular.style.display = mode === 'perpendicular' ? '' : 'none';
     clearPicks();
   }
 
@@ -257,6 +266,7 @@
   function clearPicks() {
     pickEdge = { a: null, b: null };
     pickPoint = { a: null, b: null };
+    pickPerpEdge = null;
     selection = null;
     renderer.setSelected(null);
     // updateHud();
@@ -267,6 +277,8 @@
     if (measureMode === 'edge') {
       clEdgeA.value = pickEdge.a || clEdgeA.value;
       clEdgeB.value = pickEdge.b || clEdgeB.value;
+    } else if (measureMode === 'perpendicular') {
+      if (pickPerpEdge) perpBaseEdge.value = pickPerpEdge;
     } else {
       clPointA.value = pickPoint.a || clPointA.value;
       clPointB.value = pickPoint.b || clPointB.value;
@@ -276,27 +288,34 @@
   /** ตอนอยู่แท็บ "เส้นวัด": คลิกเส้น/จุดบนหน้าจอ = เติม เส้นที่1/2 หรือ จุดที่1/2 (ไม่เปิดป็อปอัพ, ไม่ auto-create) */
   function handleMeasurePick(sel) {
     if (!sel) return;
-    const isEdgeMode = measureMode === 'edge';
-    const msgEl = isEdgeMode ? closureMsg : measurePtMsg;
-    const label = isEdgeMode ? 'เส้น' : 'จุด';
-    if (isEdgeMode && sel.type !== 'edge') { showToast(`โหมดนี้ให้คลิก${label} 2 ${label}`, true); return; }
-    if (!isEdgeMode && sel.type !== 'point') { showToast(`โหมดนี้ให้คลิก${label} 2 ${label}`, true); return; }
 
-    const arr = isEdgeMode ? pickEdge : pickPoint;
-    const id = sel.id;
-
-    // ถ้าจับคู่ครบแล้ว -> เริ่มคู่ใหม่
-    if (arr.a !== null && arr.b !== null) { arr.a = null; arr.b = null; }
-
-    if (arr.a === null) {
-      arr.a = id;
-      setMsg(msgEl, `เลือก${label}ที่ 1 แล้ว — คลิก${label}อีก 1 เพื่อเป็น${label}ที่ 2`, false);
-    } else if (arr.a === id) {
-      showToast(`เลือก${label}นี้ไว้แล้ว — กรุณาเลือก${label}อื่น`, true);
-      return;
+    if (measureMode === 'perpendicular') {
+      if (sel.type !== 'edge') { showToast('โหมดนี้ให้คลิก "เส้น" เพื่อใช้เป็นเส้นฐาน', true); return; }
+      pickPerpEdge = sel.id;
+      setMsg(perpMsg, `เลือกเส้นฐานแล้ว — กรอกข้อมูลที่เหลือแล้วกด "สร้าง"`, false);
     } else {
-      arr.b = id;
-      setMsg(msgEl, `ครบ ${label}ที่ 1 + ${label}ที่ 2 — กดปุ่ม "สร้าง" ได้เลย`, false);
+      const isEdgeMode = measureMode === 'edge';
+      const msgEl = isEdgeMode ? closureMsg : measurePtMsg;
+      const label = isEdgeMode ? 'เส้น' : 'จุด';
+      if (isEdgeMode && sel.type !== 'edge') { showToast(`โหมดนี้ให้คลิก${label} 2 ${label}`, true); return; }
+      if (!isEdgeMode && sel.type !== 'point') { showToast(`โหมดนี้ให้คลิก${label} 2 ${label}`, true); return; }
+
+      const arr = isEdgeMode ? pickEdge : pickPoint;
+      const id = sel.id;
+
+      // ถ้าจับคู่ครบแล้ว -> เริ่มคู่ใหม่
+      if (arr.a !== null && arr.b !== null) { arr.a = null; arr.b = null; }
+
+      if (arr.a === null) {
+        arr.a = id;
+        setMsg(msgEl, `เลือก${label}ที่ 1 แล้ว — คลิก${label}อีก 1 เพื่อเป็น${label}ที่ 2`, false);
+      } else if (arr.a === id) {
+        showToast(`เลือก${label}นี้ไว้แล้ว — กรุณาเลือก${label}อื่น`, true);
+        return;
+      } else {
+        arr.b = id;
+        setMsg(msgEl, `ครบ ${label}ที่ 1 + ${label}ที่ 2 — กดปุ่ม "สร้าง" ได้เลย`, false);
+      }
     }
     syncPicksToSelects();
     selection = sel;
@@ -350,6 +369,67 @@
       else if (idx === 0) sel.value = names[Math.max(0, names.length - 2)];
       else sel.value = names[names.length - 1];
     });
+  }
+
+  // ============================================= STEP 3 : PERPENDICULAR
+  formPerpendicular.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const edgeId = perpBaseEdge.value;
+    const originPoint = perpOriginPoint.value;
+    const edge = Engine.getEdges().find(e => e.id === edgeId);
+    if (!edge) {
+      setMsg(perpMsg, 'ไม่พบเส้นฐานที่เลือก', true);
+      return;
+    }
+    const refC = edge.from === originPoint ? edge.to : edge.from;
+
+    const result = Engine.addPerpendicularPoint({
+      refC: refC,
+      refE: originPoint,
+      length: perpLength.value,
+      flip: perpFlipSide.checked
+    });
+
+    if (!result.ok) {
+      setMsg(perpMsg, result.error, true);
+      return;
+    }
+    setMsg(perpMsg, `สร้างจุด "${result.name}" และเส้นตั้งฉากสำเร็จ`, false);
+    formPerpendicular.reset();
+    perpFlipSide.checked = false;
+    populateRefSelectors(); // for tab 2
+    refreshAll();
+  });
+
+  function populatePerpendicularSelectors() {
+    const edges = Engine.getEdges();
+    const prevVal = perpBaseEdge.value;
+    perpBaseEdge.innerHTML = '';
+    if (edges.length === 0) {
+      perpBaseEdge.innerHTML = '<option value="">ยังไม่มีเส้น</option>';
+      perpBaseEdge.disabled = true;
+      updatePerpOriginSelector(); // clear origin points
+      return;
+    }
+    perpBaseEdge.disabled = false;
+    edges.forEach(edge => {
+      perpBaseEdge.innerHTML += `<option value="${edge.id}">${edge.from}–${edge.to}</option>`;
+    });
+    if (edges.some(e => e.id === prevVal)) perpBaseEdge.value = prevVal;
+    else perpBaseEdge.value = edges[0].id;
+    updatePerpOriginSelector();
+  }
+
+  function updatePerpOriginSelector() {
+    const edgeId = perpBaseEdge.value;
+    const edge = Engine.getEdges().find(e => e.id === edgeId);
+    perpOriginPoint.innerHTML = '';
+    if (!edge) {
+      perpOriginPoint.disabled = true;
+      return;
+    }
+    perpOriginPoint.disabled = false;
+    perpOriginPoint.innerHTML = `<option value="${edge.from}">${edge.from}</option><option value="${edge.to}">${edge.to}</option>`;
   }
 
   // ============================================================ SELECTION
@@ -896,6 +976,7 @@
     renderTables();
     populateClosureSelectors();
     populatePointMeasureSelectors();
+    populatePerpendicularSelectors();
     // updateHud();
     stageEmpty.classList.toggle('is-visible', state.order.length === 0);
   }
@@ -908,6 +989,7 @@
       refreshAll();
       renderer.fitToView();
       updateZoomLabel();
+      perpBaseEdge.addEventListener('change', updatePerpOriginSelector);
     });
   }
 

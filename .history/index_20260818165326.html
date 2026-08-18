@@ -32,6 +32,7 @@
       <button class="tab is-active" data-tab="setup">1 · เส้นฐาน</button>
       <button class="tab" data-tab="add">2 · เพิ่มจุด</button>
       <button class="tab" data-tab="line">3 · เส้นวัด</button>
+      <button class="tab" data-tab="offset">4 · เส้นฉาก</button>
       <button class="tab" data-tab="table">รายการ</button>
     </nav>
 
@@ -152,6 +153,47 @@
         <button type="submit" class="btn btn--accent">+ เพิ่มเส้นวัด (จาก 2 จุด)</button>
         <p class="form__msg" id="measurePtMsg"></p>
       </form>
+    </section>
+
+    <!-- ---- Panel: Step 4 Right-angle offset ---- -->
+    <section class="panel" data-panel="offset">
+      <p class="panel__hint">สร้างจุดใหม่โดยการลากเส้นตั้งฉาก 90° จากปลายเส้นที่มีอยู่แล้ว</p>
+
+      <form id="formOffset" class="form">
+        <div class="field-row">
+          <label class="field">
+            <span>จุดปลายเส้นฐาน (C)</span>
+            <select id="offsetRefC" required></select>
+          </label>
+          <label class="field">
+            <span>จุดมุมฉาก 90° (E)</span>
+            <select id="offsetRefE" required></select>
+          </label>
+        </div>
+        <p class="panel__hint" style="margin:0;">จะสร้างเส้นตั้งฉากกับเส้น C–E ที่จุด E</p>
+
+        <label class="field">
+          <span>ระยะตั้งฉาก E–F (เมตร)</span>
+          <input type="number" id="offsetLen" step="any" min="0.001" required>
+        </label>
+
+        <label class="field">
+          <span>ชื่อจุดใหม่ F <em>(เว้นว่าง = รันอัตโนมัติ)</em></span>
+          <input type="text" id="offsetNewName" placeholder="อัตโนมัติ" maxlength="12">
+        </label>
+
+        <label class="switch">
+          <input type="checkbox" id="offsetFlip">
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          <span class="switch__label">Flip Side (สลับด้านของเส้นตั้งฉาก)</span>
+        </label>
+
+        <button type="submit" class="btn btn--accent">+ สร้างจุดมุมฉาก</button>
+        <p class="form__msg" id="offsetMsg"></p>
+      </form>
+      <p class="panel__hint" style="margin-top:12px;">
+        โปรแกรมจะสร้างจุด F, เส้นตั้งฉาก E–F, และเส้นปิด C–F (ด้านตรงข้ามมุมฉาก) ให้โดยอัตโนมัติ
+      </p>
     </section>
 
     <!-- ---- Panel: Table of points & edges ---- -->

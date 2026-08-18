@@ -51,9 +51,9 @@
   const pointCountEl = $('#pointCount');
   const edgeCountEl = $('#edgeCount');
 
-  // const hudBadge = $('#hudBadge');
-  // const hudX = $('#hudX');
-  // const hudY = $('#hudY');
+  const hudBadge = $('#hudBadge');
+  const hudX = $('#hudX');
+  const hudY = $('#hudY');
 
   const btnFit = $('#btnFit');
   const zoomInBtn = $('#zoomIn');
@@ -259,7 +259,7 @@
     pickPoint = { a: null, b: null };
     selection = null;
     renderer.setSelected(null);
-    // updateHud();
+    updateHud();
   }
 
   /** นำค่าที่คลิกเลือกไปใส่ช่องดรอปดาวน์ที่ตรงกัน ให้เห็น "เส้นที่1/2" หรือ "จุดที่1/2" */
@@ -301,7 +301,7 @@
     syncPicksToSelects();
     selection = sel;
     renderer.setSelected(sel);
-    // updateHud();
+    updateHud();
   }
 
   /** handler คลิกบนหน้าจอ: ถ้าอยู่แท็บ "เส้นวัด" ให้เลือกเส้น/จุด, แท็บอื่นใช้ work flow เดิม */
@@ -356,7 +356,7 @@
   function selectItem(sel) {
     selection = sel;
     renderer.setSelected(sel);
-    // updateHud();
+    updateHud();
     if (!sel) return;
 
     if (sel.type === 'edge') {
@@ -380,19 +380,19 @@
     showToast(`ตั้งจุดอ้างอิงเป็น "${edge.from}" และ "${edge.to}" ให้แล้ว`);
   }
 
-  // function updateHud() {
-  //   if (!selection || selection.type !== 'point') {
-  //     hudBadge.textContent = '—';
-  //     hudX.textContent = '0.000';
-  //     hudY.textContent = '0.000';
-  //     return;
-  //   }
-  //   const p = Engine.getPoint(selection.id);
-  //   if (!p) return;
-  //   hudBadge.textContent = selection.id;
-  //   hudX.textContent = p.x.toFixed(3);
-  //   hudY.textContent = p.y.toFixed(3);
-  // }
+  function updateHud() {
+    if (!selection || selection.type !== 'point') {
+      hudBadge.textContent = '—';
+      hudX.textContent = '0.000';
+      hudY.textContent = '0.000';
+      return;
+    }
+    const p = Engine.getPoint(selection.id);
+    if (!p) return;
+    hudBadge.textContent = selection.id;
+    hudX.textContent = p.x.toFixed(3);
+    hudY.textContent = p.y.toFixed(3);
+  }
 
   // ============================================================ EDIT MODAL
   function openEditModal(sel) {
@@ -650,7 +650,7 @@
     hideModal();
     selection = null;
     renderer.setSelected(null);
-    // updateHud();
+    updateHud();
     populateRefSelectors();
     refreshAll();
     if (r.clearedAll) {
@@ -729,7 +729,7 @@
       const id = btn.dataset.id;
       selection = { type: 'edge', id };
       renderer.setSelected(selection);
-      // updateHud();
+      updateHud();
       const edge = Engine.getEdges().find(e => e.id === id);
       if (edge) applyEdgeAsReference(edge);
       openEditModal(selection);
@@ -896,7 +896,7 @@
     renderTables();
     populateClosureSelectors();
     populatePointMeasureSelectors();
-    // updateHud();
+    updateHud();
     stageEmpty.classList.toggle('is-visible', state.order.length === 0);
   }
 
