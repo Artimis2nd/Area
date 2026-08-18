@@ -53,6 +53,8 @@
 
   const btnExportCsv = $('#btnExportCsv');
   const btnExportJson = $('#btnExportJson');
+  const btnExportDxf = $('#btnExportDxf');
+  const btnExportPdf = $('#btnExportPdf');
   const btnReset = $('#btnReset');
 
   const modalBackdrop = $('#modalBackdrop');
@@ -255,7 +257,6 @@
         <p class="panel__hint" style="margin:0;">ต้องการหมุนทิศทาง? ปิดหน้าต่างนี้แล้วคลิกเลือก "เส้น A–B" บน Canvas หรือในตารางแทน</p>` : ''}
       `;
     } else {
-      const names = Engine.getPointNames().filter(n => n !== name && !Engine.getPoint(n).isBase || Engine.getPoint(n).isBase);
       const validRefs = Engine.getPointNames().filter(n => n !== name);
       modalBody.innerHTML = `
         <label class="field">
@@ -641,6 +642,22 @@
     };
     downloadFile(JSON.stringify(data, null, 2), 'trilateration_coordinates.json', 'application/json');
     showToast('Export JSON สำเร็จ');
+  });
+
+  btnExportDxf.addEventListener('click', () => {
+    const names = Engine.getPointNames();
+    if (names.length === 0) { showToast('ยังไม่มีข้อมูลให้ Export', true); return; }
+    const dxf = DXF.build(Engine.getState().points, Engine.getEdges());
+    downloadFile(dxf, 'trilateration_export.dxf', 'application/dxf');
+    showToast('Export DXF สำเร็จ — เปิดใน CAD (หน่วย: เมตร)');
+  });
+
+  btnExportPdf.addEventListener('click', () => {
+    const names = Engine.getPointNames();
+    if (names.length === 0) { showToast('ยังไม่มีข้อมูลให้ Export', true); return; }
+    const pdf = PDF.build(Engine.getState().points, Engine.getEdges());
+    downloadFile(pdf, 'trilateration_export.pdf', 'application/pdf');
+    showToast('Export PDF สำเร็จ — วางใน ArchiCAD ที่สเกล 1:1');
   });
 
   function downloadFile(content, filename, mime) {

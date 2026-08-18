@@ -76,6 +76,7 @@ button, input, select{ font-family:inherit; color:inherit; }
   display:flex;
   flex-direction:column;
   overflow-y:auto;
+  overflow-x:hidden;
   padding:18px 16px 24px;
 }
 
@@ -203,7 +204,7 @@ button, input, select{ font-family:inherit; color:inherit; }
 }
 
 .form{ display:flex; flex-direction:column; gap:12px; }
-.field-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.field-row{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
 
 .field{ display:flex; flex-direction:column; gap:6px; }
 .field > span{
@@ -220,6 +221,8 @@ button, input, select{ font-family:inherit; color:inherit; }
   color:var(--text-hi);
   font-family:var(--font-mono);
   outline:none;
+  width:100%;
+  min-width:0;
   transition:border-color .15s ease, background .15s ease;
 }
 .field select{ font-family:var(--font-body); }
@@ -400,7 +403,7 @@ button, input, select{ font-family:inherit; color:inherit; }
   flex-direction:column;
   gap:8px;
 }
-.actions__row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.actions__row{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
 
 /* ============================== STAGE (canvas) =========================== */
 .stage{
@@ -520,7 +523,7 @@ canvas.is-hovering-clickable{ cursor:pointer; }
   display:flex; flex-direction:column; gap:12px;
   max-height:60vh; overflow-y:auto;
 }
-.modal__body .field-row{ grid-template-columns:1fr 1fr; }
+.modal__body .field-row{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
 
 .rotate-box{
   background:var(--bg-card);
