@@ -38,11 +38,11 @@
           </div>
           <div class="field">
             <label>งาน</label>
-            <input type="number" id="deedNgan" min="0" step="1" value="0" />
+            <input type="number" id="deedNgan" min="0" max="3" step="1" value="0" />
           </div>
           <div class="field">
             <label>ตารางวา</label>
-            <input type="number" id="deedWa" min="0" step="0.01" value="0" />
+            <input type="number" id="deedWa" min="0" max="99.99" step="0.01" value="0" />
           </div>
         </div>
         <div class="info-line">
@@ -120,6 +120,26 @@
     </div>
     <div id="canvasWrapper" class="canvas-wrapper">
       <canvas id="mainCanvas"></canvas>
+      <div id="cropOverlay" class="crop-overlay">
+        <div id="cropMaskTop" class="crop-mask"></div>
+        <div id="cropMaskBottom" class="crop-mask"></div>
+        <div id="cropMaskLeft" class="crop-mask"></div>
+        <div id="cropMaskRight" class="crop-mask"></div>
+        <div id="cropBox" class="crop-box">
+          <div class="crop-handle" data-handle="nw"></div>
+          <div class="crop-handle" data-handle="ne"></div>
+          <div class="crop-handle" data-handle="sw"></div>
+          <div class="crop-handle" data-handle="se"></div>
+        </div>
+        <div class="crop-toolbar">
+          <span>ลากกรอบหรือมุมเพื่อกำหนดขอบเขตที่จะบันทึกลง PDF</span>
+          <div class="crop-toolbar-actions">
+            <button id="btnCropReset" class="btn btn-secondary">ขอบเขตอัตโนมัติ</button>
+            <button id="btnCropCancel" class="btn btn-secondary">ยกเลิก</button>
+            <button id="btnCropConfirm" class="btn btn-primary">ยืนยันและสร้าง PDF</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="statusBar" class="status-bar">พร้อมใช้งาน — เริ่มจากนำเข้ารูปภาพโฉนดที่ดิน</div>
   </main>
@@ -133,6 +153,7 @@
 <script src="js/utils.js"></script>
 <script src="js/modal.js"></script>
 <script src="js/canvas.js"></script>
+<script src="js/cropTool.js"></script>
 <script src="js/exportDXF.js"></script>
 <script src="js/exportPDF.js"></script>
 <script src="js/project.js"></script>

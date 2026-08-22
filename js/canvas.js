@@ -322,6 +322,7 @@ LDD.canvas = (function () {
   api.zoomFit = zoomFit;
   api.zoomReset = zoomReset;
   api.getEl = () => canvasEl;
+  api.worldToScreen = worldToScreen;
 
   return api;
 })();

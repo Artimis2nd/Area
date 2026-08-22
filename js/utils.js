@@ -47,5 +47,19 @@ LDD.utils = (function () {
     return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: digits });
   }
 
-  return { raiNganWaToM2, m2ToRaiNganWa, polygonAreaPx, polygonCentroid, dist, fmt };
+  // Strips Thai/non-ASCII and filesystem-unsafe characters so exported files
+  // (DXF especially — ArchiCAD/AutoCAD on some setups mishandle non-Latin
+  // filenames/paths) always get a safe, predictable name.
+  function safeFilename(name, fallback) {
+    fallback = fallback || 'land_plot';
+    if (!name) return fallback;
+    let s = String(name).trim();
+    s = s.replace(/[^\x20-\x7E]/g, '');
+    s = s.replace(/[\\/:*?"<>|]/g, '');
+    s = s.trim().replace(/\s+/g, '_');
+    s = s.replace(/_{2,}/g, '_').replace(/^_+|_+$/g, '');
+    return s || fallback;
+  }
+
+  return { raiNganWaToM2, m2ToRaiNganWa, polygonAreaPx, polygonCentroid, dist, fmt, safeFilename };
 })();

@@ -260,6 +260,62 @@ html, body {
   border-top: 1px solid var(--color-border);
 }
 
+/* Crop overlay (PDF export) */
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  z-index: 20;
+}
+.crop-overlay.active { display: block; }
+
+.crop-mask {
+  position: absolute;
+  background: rgba(15, 23, 42, .6);
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px dashed #fff;
+  box-shadow: 0 0 0 1px rgba(37,99,235,.9);
+  cursor: move;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid var(--color-primary);
+  border-radius: 3px;
+}
+.crop-handle[data-handle="nw"] { top: -8px; left: -8px; cursor: nwse-resize; }
+.crop-handle[data-handle="ne"] { top: -8px; right: -8px; cursor: nesw-resize; }
+.crop-handle[data-handle="sw"] { bottom: -8px; left: -8px; cursor: nesw-resize; }
+.crop-handle[data-handle="se"] { bottom: -8px; right: -8px; cursor: nwse-resize; }
+
+.crop-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, .88);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+  max-width: calc(100% - 24px);
+  flex-wrap: wrap;
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+}
+.crop-toolbar-actions { display: flex; gap: 8px; }
+.crop-toolbar .btn { padding: 6px 10px; font-size: 12.5px; border: none; }
+.crop-toolbar .btn-secondary { background: #334155; color: #fff; }
+.crop-toolbar .btn-secondary:hover { background: #475569; }
+
 /* Modal */
 .modal-overlay {
   position: fixed;

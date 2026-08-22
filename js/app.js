@@ -225,16 +225,31 @@
     });
 
     // --- Deed area ---
-    [els.deedRai, els.deedNgan, els.deedWa].forEach(inp => {
-      inp.addEventListener('input', () => {
-        state.deed = {
-          rai: parseFloat(els.deedRai.value) || 0,
-          ngan: parseFloat(els.deedNgan.value) || 0,
-          wa: parseFloat(els.deedWa.value) || 0
-        };
-        updateResults();
-        scheduleAutosave();
-      });
+    function clampDeedInput(inp, min, max) {
+      let v = parseFloat(inp.value);
+      if (isNaN(v)) return;
+      const clamped = Math.min(Math.max(v, min), max);
+      if (clamped !== v) inp.value = clamped;
+    }
+    els.deedRai.addEventListener('input', () => {
+      clampDeedInput(els.deedRai, 0, Infinity);
+      state.deed.rai = parseFloat(els.deedRai.value) || 0;
+      updateResults();
+      scheduleAutosave();
+    });
+    els.deedNgan.addEventListener('input', () => {
+      // 4 งาน = 1 ไร่ ดังนั้นกรอกได้สูงสุด 3 งาน
+      clampDeedInput(els.deedNgan, 0, 3);
+      state.deed.ngan = parseFloat(els.deedNgan.value) || 0;
+      updateResults();
+      scheduleAutosave();
+    });
+    els.deedWa.addEventListener('input', () => {
+      // 100 ตร.วา = 1 งาน ดังนั้นกรอกได้สูงสุด 99.99 ตร.วา
+      clampDeedInput(els.deedWa, 0, 99.99);
+      state.deed.wa = parseFloat(els.deedWa.value) || 0;
+      updateResults();
+      scheduleAutosave();
     });
 
     // --- Drawing tools ---
@@ -323,14 +338,25 @@
     // --- Export ---
     els.btnExportDXF.addEventListener('click', () => {
       try {
-        LDD.exportDXF.download(state, (state.projectName || 'land-plot') + '.dxf');
+        LDD.exportDXF.download(state, LDD.utils.safeFilename(state.projectName, 'land_plot') + '.dxf');
       } catch (err) {
         LDD.modal.alert({ title: 'ไม่สามารถ Export ได้', message: err.message });
       }
     });
     els.btnExportPDF.addEventListener('click', async () => {
+      if (state.nodes.length < 2) return;
       try {
-        await LDD.exportPDF.download(state, LDD.canvas.getEl(), (state.projectName || 'land-plot') + '.pdf');
+        state.mode = 'idle';
+        updateStatus();
+        LDD.canvas.zoomFit();
+
+        const canvasEl = LDD.canvas.getEl();
+        const defaultRect = LDD.cropTool.computeDefaultRect(state, els.canvasWrapper);
+        const picked = await LDD.cropTool.pick(els.canvasWrapper, defaultRect);
+        if (!picked) return;
+
+        const cropped = LDD.cropTool.captureImage(canvasEl, picked);
+        await LDD.exportPDF.download(state, canvasEl, LDD.utils.safeFilename(state.projectName, 'land_plot') + '.pdf', cropped);
       } catch (err) {
         LDD.modal.alert({ title: 'ไม่สามารถ Export ได้', message: err.message });
       }

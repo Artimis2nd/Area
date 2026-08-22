@@ -52,7 +52,11 @@ LDD.exportPDF = (function () {
     return { dataURL: canvas.toDataURL('image/png'), width: widthPx, height };
   }
 
-  async function download(state, canvasEl, filename) {
+  // `croppedImage` is an optional { dataURL, width, height } produced by
+  // LDD.cropTool.captureImage — the user-picked crop region. When present it
+  // replaces the raw full canvas so nothing outside the chosen bounds ends
+  // up in the PDF.
+  async function download(state, canvasEl, filename, croppedImage) {
     await ensureLib();
     if (document.fonts && document.fonts.ready) {
       try {
@@ -73,16 +77,18 @@ LDD.exportPDF = (function () {
     const infoMmHeight = infoMmWidth * (info.height / info.width);
     doc.addImage(info.dataURL, 'PNG', margin, margin, infoMmWidth, infoMmHeight);
 
+    const image = croppedImage || { dataURL: canvasEl.toDataURL('image/png'), width: canvasEl.width, height: canvasEl.height };
+
     const imgTop = margin + infoMmHeight + 5;
     const maxW = pageW - margin * 2;
     const maxH = pageH - imgTop - margin;
-    const scale = Math.min(maxW / canvasEl.width, maxH / canvasEl.height);
-    const w = canvasEl.width * scale, h = canvasEl.height * scale;
+    const scale = Math.min(maxW / image.width, maxH / image.height);
+    const w = image.width * scale, h = image.height * scale;
     const x = margin + (maxW - w) / 2;
 
     doc.setDrawColor(200);
     doc.rect(x, imgTop, w, h);
-    doc.addImage(canvasEl.toDataURL('image/png'), 'PNG', x, imgTop, w, h);
+    doc.addImage(image.dataURL, 'PNG', x, imgTop, w, h);
 
     doc.save(filename || ((state.projectName || 'land-plot') + '.pdf'));
   }
