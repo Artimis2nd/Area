@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Land Title Deed Digitizer — ถอดสเกลโฉนดที่ดิน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <header class="sidebar-header">
+      <h1>Land Title Deed Digitizer</h1>
+      <p class="subtitle">โปรแกรมถอดสเกลโฉนดที่ดิน</p>
+    </header>
+
+    <div class="sidebar-scroll">
+
+      <section class="panel">
+        <h2 class="panel-title">1. นำเข้ารูปภาพ</h2>
+        <div id="dropzone" class="dropzone">
+          <p>ลากไฟล์รูปมาวาง หรือคลิกเพื่อเลือกไฟล์</p>
+          <span id="imageFileName" class="file-name">ยังไม่ได้เลือกไฟล์</span>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" hidden />
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">2. เนื้อที่ตามโฉนด</h2>
+        <div class="form-row form-row-3">
+          <div class="field">
+            <label>ไร่</label>
+            <input type="number" id="deedRai" min="0" step="1" value="0" />
+          </div>
+          <div class="field">
+            <label>งาน</label>
+            <input type="number" id="deedNgan" min="0" step="1" value="0" />
+          </div>
+          <div class="field">
+            <label>ตารางวา</label>
+            <input type="number" id="deedWa" min="0" step="0.01" value="0" />
+          </div>
+        </div>
+        <div class="info-line">
+          เท่ากับ <strong id="deedM2Display">0.00 ตร.ม.</strong>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">3. เครื่องมือวาดรูปแปลง</h2>
+        <div class="btn-grid">
+          <button id="btnToggleTrace" class="btn btn-primary">+ เพิ่มจุด / วาดรูปหลายเหลี่ยม</button>
+          <button id="btnClosePolygon" class="btn btn-secondary">ปิดรูปหลายเหลี่ยม</button>
+          <button id="btnUndoNode" class="btn btn-secondary">ย้อนกลับจุดล่าสุด</button>
+          <button id="btnClearPolygon" class="btn btn-danger-outline">ล้างรูปทั้งหมด</button>
+        </div>
+        <div class="info-line">จำนวนจุด: <strong id="nodeCount">0</strong></div>
+        <p class="hint">คลิกบนภาพเพื่อปักหมุด · คลิกจุดแรกเพื่อปิดรูป · คลิกขวาที่จุดเพื่อลบ · Delete เพื่อลบจุดที่เลือก</p>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">4. ปรับสเกล (Auto-Scaling)</h2>
+        <button id="btnSetScaleDistance" class="btn btn-secondary btn-block">วิธีที่ 1: ตั้งสเกลจากระยะจริง (คลิก 2 จุด)</button>
+        <button id="btnAutoScaleArea" class="btn btn-secondary btn-block" disabled>วิธีที่ 2: ปรับสเกลอัตโนมัติจากพื้นที่โฉนด</button>
+        <div class="info-line">สเกลปัจจุบัน: <strong id="scaleInfo">ยังไม่ได้ตั้งสเกล</strong></div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">5. ผลลัพธ์การคำนวณ</h2>
+        <div class="result-grid">
+          <div class="result-row"><span>พื้นที่ (พิกเซล)</span><span id="resultAreaPx">-</span></div>
+          <div class="result-row"><span>พื้นที่จริง (ตร.ม.)</span><span id="resultAreaM2">-</span></div>
+          <div class="result-row"><span>ไร่-งาน-วา</span><span id="resultRaiNganWa">-</span></div>
+          <div class="result-row"><span>ผลต่างจากโฉนด</span><span id="resultDiff" class="result-value">-</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">6. โปรเจกต์</h2>
+        <div class="field">
+          <label>ชื่อโปรเจกต์</label>
+          <input type="text" id="projectNameInput" />
+        </div>
+        <div class="btn-grid">
+          <button id="btnSaveProject" class="btn btn-secondary">บันทึกโปรเจกต์ (.json)</button>
+          <button id="btnLoadProjectTrigger" class="btn btn-secondary">เปิดโปรเจกต์ (.json)</button>
+          <button id="btnLoadAutosave" class="btn btn-secondary" disabled>โหลดข้อมูลที่บันทึกอัตโนมัติ</button>
+          <button id="btnNewProject" class="btn btn-danger-outline">โปรเจกต์ใหม่</button>
+        </div>
+        <input type="file" id="fileLoadProject" accept="application/json" hidden />
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">7. ส่งออกไฟล์</h2>
+        <div class="btn-grid">
+          <button id="btnExportDXF" class="btn btn-primary" disabled>Export DXF (AutoCAD / ArchiCAD)</button>
+          <button id="btnExportPDF" class="btn btn-primary" disabled>Export PDF</button>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button id="btnPanMode" class="btn-icon" title="โหมดเลื่อนภาพ (Pan)">✋ เลื่อนภาพ</button>
+      </div>
+      <div class="toolbar-group">
+        <button id="btnZoomOut" class="btn-icon" title="ซูมออก">−</button>
+        <span id="zoomLevel" class="zoom-label">100%</span>
+        <button id="btnZoomIn" class="btn-icon" title="ซูมเข้า">+</button>
+        <button id="btnZoomFit" class="btn-icon" title="พอดีหน้าจอ">พอดีจอ</button>
+        <button id="btnZoomReset" class="btn-icon" title="รีเซ็ตซูม">100%</button>
+      </div>
+    </div>
+    <div id="canvasWrapper" class="canvas-wrapper">
+      <canvas id="mainCanvas"></canvas>
+    </div>
+    <div id="statusBar" class="status-bar">พร้อมใช้งาน — เริ่มจากนำเข้ารูปภาพโฉนดที่ดิน</div>
+  </main>
+</div>
+
+<div id="modalOverlay" class="modal-overlay">
+  <div id="modalBox" class="modal-box"></div>
+</div>
+
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/modal.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/exportDXF.js"></script>
+<script src="js/exportPDF.js"></script>
+<script src="js/project.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
